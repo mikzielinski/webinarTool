@@ -11,12 +11,31 @@ import {
   totalDurationMinutes,
 } from "./agenda.js";
 import { PrompterEngine } from "./prompter.js";
+import { NotesScroller, loadScrollMode, saveScrollMode, loadPrompterSettings, savePrompterSettings } from "./notes-scroll.js";
+import { SlideDeck } from "./slides.js";
 
 const state = {
   agenda: loadAgenda(),
   view: "editor",
   dragIndex: null,
+  lastChapterIndex: -1,
 };
+
+const slideDeck = new SlideDeck();
+slideDeck.onChange = () => {
+  renderSlides();
+  renderSlideDeckInfo();
+};
+
+const notesScroller = new NotesScroller(() => [
+  $("#notes-scroll-panel"),
+  $("#fs-notes-scroll-panel"),
+]);
+
+const prompterSettings = loadPrompterSettings();
+slideDeck.showSlides = prompterSettings.showSlides !== false;
+slideDeck.syncWithChapters = prompterSettings.syncSlidesChapters !== false;
+notesScroller.setMode(loadScrollMode());
 
 const engine = new PrompterEngine({
   autoAdvance: true,
@@ -40,12 +59,17 @@ engine.onAdvanceCountdown = (sec) => {
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-function init() {
+async function init() {
+  notesScroller.attach();
+  await slideDeck.loadFromStorage();
   bindNavigation();
   bindEditor();
   bindPrompter();
   bindKeyboard();
+  applyPrompterSettingsUI();
   renderEditor();
+  renderSlideDeckInfo();
+  renderSlides();
   renderPrompter();
 }
 
@@ -62,11 +86,15 @@ function switchView(view) {
 
   if (view === "prompter") {
     document.body.classList.add("prompter-theme");
+    state.lastChapterIndex = -1;
     engine.load(state.agenda);
+    slideDeck.syncToChapter(engine.chapterIndex);
+    notesScroller.resetScroll();
     renderPrompter();
   } else {
     document.body.classList.remove("prompter-theme");
     engine.stop();
+    notesScroller.setRunning(false);
   }
 }
 
@@ -80,6 +108,25 @@ function showToast(msg) {
   toast.classList.add("show");
   clearTimeout(showToast._t);
   showToast._t = setTimeout(() => toast.classList.remove("show"), 3000);
+}
+
+function applyPrompterSettingsUI() {
+  $("#notes-scroll-mode").value = notesScroller.mode;
+  $("#show-slides").checked = slideDeck.showSlides;
+  $("#sync-slides-chapters").checked = slideDeck.syncWithChapters;
+  updateSlidesVisibility();
+}
+
+function updateSlidesVisibility() {
+  const hidden = !slideDeck.showSlides || !slideDeck.count;
+  document.querySelector(".prompter-main")?.classList.toggle("slides-hidden", hidden);
+  document.querySelector(".fs-body-grid")?.classList.toggle("slides-hidden", hidden);
+}
+
+function onChapterChanged(idx) {
+  notesScroller.resetScroll();
+  slideDeck.syncToChapter(idx);
+  state.lastChapterIndex = idx;
 }
 
 /* ── Editor ── */
@@ -123,10 +170,8 @@ function bindEditor() {
 
   const zone = $("#upload-zone");
   const input = $("#file-input");
-
   zone.addEventListener("click", () => input.click());
-  input.addEventListener("change", (e) => handleFiles(e.target.files));
-
+  input.addEventListener("change", (e) => handleAgendaFiles(e.target.files));
   zone.addEventListener("dragover", (e) => {
     e.preventDefault();
     zone.classList.add("dragover");
@@ -135,11 +180,54 @@ function bindEditor() {
   zone.addEventListener("drop", (e) => {
     e.preventDefault();
     zone.classList.remove("dragover");
-    handleFiles(e.dataTransfer.files);
+    handleAgendaFiles(e.dataTransfer.files);
+  });
+
+  const slideZone = $("#slide-upload-zone");
+  const slideInput = $("#slide-input");
+  slideZone.addEventListener("click", () => slideInput.click());
+  slideInput.addEventListener("change", (e) => handleSlideFiles(e.target.files));
+  slideZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    slideZone.classList.add("dragover");
+  });
+  slideZone.addEventListener("dragleave", () => slideZone.classList.remove("dragover"));
+  slideZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    slideZone.classList.remove("dragover");
+    handleSlideFiles(e.dataTransfer.files);
+  });
+
+  $("#btn-clear-slides").addEventListener("click", async () => {
+    await slideDeck.clear();
+    showToast("Presentation cleared");
   });
 }
 
-function handleFiles(files) {
+async function handleSlideFiles(files) {
+  if (!files?.length) return;
+  try {
+    showToast("Loading presentation…");
+    await slideDeck.loadFiles(files);
+    showToast(`Loaded ${slideDeck.count} slides from "${slideDeck.fileName}"`);
+    renderSlideDeckInfo();
+    updateSlidesVisibility();
+  } catch (err) {
+    showToast("Slide load failed: " + err.message);
+  }
+}
+
+function renderSlideDeckInfo() {
+  const el = $("#slide-deck-info");
+  if (!el) return;
+  if (!slideDeck.count) {
+    el.textContent = "No presentation loaded";
+    return;
+  }
+  el.textContent = `${slideDeck.count} slides · ${slideDeck.fileName}`;
+}
+
+function handleAgendaFiles(files) {
   if (!files?.length) return;
   const file = files[0];
   const reader = new FileReader();
@@ -263,11 +351,67 @@ function bindDragReorder(list) {
   });
 }
 
+/* ── Slides ── */
+
+function setSlideImage(imgId, emptyId, numId, slide, numLabel) {
+  const img = document.getElementById(imgId);
+  if (!img) return;
+  const empty = emptyId ? document.getElementById(emptyId) : null;
+  const num = numId ? document.getElementById(numId) : null;
+
+  if (slide) {
+    img.src = slide.dataUrl;
+    img.hidden = false;
+    if (empty) empty.hidden = true;
+    if (num) num.textContent = numLabel;
+  } else {
+    img.removeAttribute("src");
+    img.hidden = true;
+    if (empty) {
+      empty.hidden = false;
+      if (emptyId === "slide-current-empty") {
+        empty.textContent = slideDeck.count
+          ? "—"
+          : "No presentation — upload PDF or images in Agenda setup";
+      }
+    }
+    if (num) num.textContent = "—";
+  }
+}
+
+function renderSlides() {
+  const total = slideDeck.count;
+  const i = slideDeck.slideIndex;
+
+  setSlideImage(
+    "slide-current",
+    "slide-current-empty",
+    "slide-current-num",
+    slideDeck.current,
+    total ? `${i + 1} / ${total}` : "—"
+  );
+  setSlideImage(
+    "slide-next",
+    "slide-next-empty",
+    "slide-next-num",
+    slideDeck.next,
+    slideDeck.next ? `${i + 2} / ${total}` : "—"
+  );
+  setSlideImage("fs-slide-current", null, null, slideDeck.current, null);
+  setSlideImage("fs-slide-next", null, null, slideDeck.next, null);
+
+  updateSlidesVisibility();
+}
+
 /* ── Prompter ── */
 
 function bindPrompter() {
   const playPause = () => {
     engine.toggle();
+    notesScroller.setRunning(engine.running);
+    if (engine.running && notesScroller.mode !== "off" && notesScroller.mode !== "timer") {
+      notesScroller.startLoop();
+    }
     updatePlayButton();
   };
   const next = () => {
@@ -284,23 +428,55 @@ function bindPrompter() {
     engine.cancelAdvance();
     engine.resetChapterTimer();
     engine.pause();
+    notesScroller.resetScroll();
+    notesScroller.setRunning(false);
     updatePlayButton();
   };
 
   $("#btn-play-pause").addEventListener("click", playPause);
   $("#fs-btn-play-pause").addEventListener("click", playPause);
-
   $("#btn-next").addEventListener("click", next);
   $("#fs-btn-next").addEventListener("click", next);
-
   $("#btn-prev").addEventListener("click", prev);
   $("#fs-btn-prev").addEventListener("click", prev);
-
   $("#btn-reset-chapter").addEventListener("click", reset);
   $("#fs-btn-reset").addEventListener("click", reset);
-
   $("#btn-add-minute").addEventListener("click", () => engine.addTime(60));
   $("#fs-btn-add-minute").addEventListener("click", () => engine.addTime(60));
+
+  $("#btn-slide-prev").addEventListener("click", () => slideDeck.prevSlide());
+  $("#btn-slide-next").addEventListener("click", () => slideDeck.nextSlide());
+
+  const scrollNotes = (delta) => notesScroller.scrollBy(delta);
+  $("#btn-notes-up").addEventListener("click", () => scrollNotes(-120));
+  $("#btn-notes-down").addEventListener("click", () => scrollNotes(120));
+  $("#fs-btn-notes-up").addEventListener("click", () => scrollNotes(-120));
+  $("#fs-btn-notes-down").addEventListener("click", () => scrollNotes(120));
+
+  $("#btn-notes-scroll-reset").addEventListener("click", () => {
+    notesScroller.resetScroll();
+    showToast("Notes scroll reset");
+  });
+
+  $("#notes-scroll-mode").addEventListener("change", (e) => {
+    notesScroller.setMode(e.target.value);
+    saveScrollMode(e.target.value);
+    if (engine.running && e.target.value !== "off" && e.target.value !== "timer") {
+      notesScroller.startLoop();
+    }
+  });
+
+  $("#show-slides").addEventListener("change", (e) => {
+    slideDeck.showSlides = e.target.checked;
+    savePrompterSettings({ showSlides: e.target.checked });
+    updateSlidesVisibility();
+  });
+
+  $("#sync-slides-chapters").addEventListener("change", (e) => {
+    slideDeck.syncWithChapters = e.target.checked;
+    savePrompterSettings({ syncSlidesChapters: e.target.checked });
+    if (e.target.checked) slideDeck.syncToChapter(engine.chapterIndex);
+  });
 
   $("#btn-fullscreen").addEventListener("click", toggleFullscreen);
   $("#btn-exit-fullscreen").addEventListener("click", () => setFullscreen(false));
@@ -316,6 +492,7 @@ function bindPrompter() {
   $("#advance-cancel").addEventListener("click", () => {
     engine.cancelAdvance();
     engine.pause();
+    notesScroller.setRunning(false);
     updatePlayButton();
   });
 }
@@ -342,6 +519,8 @@ function renderPrompter() {
   $("#prompter-content").style.display = "grid";
 
   const idx = tick.chapterIndex ?? engine.chapterIndex;
+  if (idx !== state.lastChapterIndex) onChapterChanged(idx);
+
   const remaining = engine.remainingSec;
   const duration = engine.chapterDurationSec;
   const chapterProg = engine.chapterProgress;
@@ -363,16 +542,19 @@ function renderPrompter() {
   $("#chapter-progress-label").textContent = `${Math.round(chapterProg * 100)}%`;
   $("#overall-progress-label").textContent = `${Math.round(overallProg * 100)}%`;
 
+  const notesText = ch?.notes?.trim() || "No notes for this chapter.";
   const notesEl = $("#notes-content");
-  if (ch?.notes?.trim()) {
-    notesEl.textContent = ch.notes;
-    notesEl.classList.remove("empty");
-  } else {
-    notesEl.textContent = "No notes for this chapter.";
-    notesEl.classList.add("empty");
+  notesEl.textContent = notesText;
+  notesEl.classList.toggle("empty", !ch?.notes?.trim());
+
+  notesScroller.syncToProgress(chapterProg);
+  notesScroller.setRunning(engine.running);
+  if (engine.running && notesScroller.mode !== "off" && notesScroller.mode !== "timer") {
+    notesScroller.startLoop();
   }
 
   renderOutline(idx);
+  renderSlides();
   updatePlayButton();
 
   const fs = $("#prompter-fullscreen");
@@ -383,8 +565,9 @@ function renderPrompter() {
     fsTimer.textContent = formatTimerDisplay(remaining);
     fsTimer.classList.toggle("warning", remaining > 0 && remaining <= 60);
     fsTimer.classList.toggle("critical", remaining > 0 && remaining <= 15);
-    $("#fs-notes").textContent = ch?.notes?.trim() || "No notes for this chapter.";
-    $("#fs-notes").classList.toggle("empty", !ch?.notes?.trim());
+    const fsNotes = $("#fs-notes");
+    fsNotes.textContent = notesText;
+    fsNotes.classList.toggle("empty", !ch?.notes?.trim());
     $("#fs-progress-fill").style.width = `${chapterProg * 100}%`;
   }
 }
@@ -417,14 +600,14 @@ function renderOutline(currentIdx) {
     el.addEventListener("click", () => {
       engine.cancelAdvance();
       engine.goTo(Number(el.dataset.goto));
+      state.lastChapterIndex = -1;
       renderPrompter();
     });
   });
 }
 
 function toggleFullscreen() {
-  const fs = $("#prompter-fullscreen");
-  setFullscreen(!fs.classList.contains("active"));
+  setFullscreen(!$("#prompter-fullscreen").classList.contains("active"));
 }
 
 function setFullscreen(on) {
@@ -442,20 +625,49 @@ function bindKeyboard() {
       case "Space":
         e.preventDefault();
         engine.toggle();
+        notesScroller.setRunning(engine.running);
+        if (engine.running && notesScroller.mode !== "off" && notesScroller.mode !== "timer") {
+          notesScroller.startLoop();
+        }
         updatePlayButton();
         break;
       case "ArrowRight":
-        engine.cancelAdvance();
-        engine.next();
-        updatePlayButton();
+        if (e.shiftKey) {
+          slideDeck.nextSlide();
+        } else {
+          engine.cancelAdvance();
+          engine.next();
+          updatePlayButton();
+        }
         break;
       case "ArrowLeft":
-        engine.cancelAdvance();
-        engine.prev();
-        updatePlayButton();
+        if (e.shiftKey) {
+          slideDeck.prevSlide();
+        } else {
+          engine.cancelAdvance();
+          engine.prev();
+          updatePlayButton();
+        }
+        break;
+      case "PageDown":
+        e.preventDefault();
+        slideDeck.nextSlide();
+        break;
+      case "PageUp":
+        e.preventDefault();
+        slideDeck.prevSlide();
+        break;
+      case "ArrowDown":
+        e.preventDefault();
+        notesScroller.scrollBy(80);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        notesScroller.scrollBy(-80);
         break;
       case "KeyR":
         engine.resetChapterTimer();
+        notesScroller.resetScroll();
         break;
       case "KeyF":
         toggleFullscreen();

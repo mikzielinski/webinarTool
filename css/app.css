@@ -346,6 +346,15 @@
 .prompter-theme .prompter-stage .notes-panel {
   background: rgba(255, 255, 255, 0.07);
   border-color: rgba(255, 255, 255, 0.12);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.prompter-theme .prompter-stage .notes-scrollable {
+  flex: 1;
+  min-height: 120px;
 }
 
 .prompter-theme .prompter-stage .notes-panel h3 {
@@ -465,6 +474,126 @@
   border-radius: var(--r-md);
   border: 1px solid var(--color-border);
   min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.notes-scrollable {
+  overflow-y: auto;
+  max-height: min(420px, 45vh);
+  scroll-behavior: smooth;
+}
+
+.notes-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-shrink: 0;
+  margin-bottom: var(--space-3);
+}
+
+.notes-panel-header h3 {
+  margin: 0;
+}
+
+.notes-scroll-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.prompter-main {
+  display: grid;
+  grid-template-columns: minmax(200px, 340px) 1fr;
+  gap: var(--space-4);
+  flex: 1;
+  min-height: 0;
+}
+
+.prompter-main.slides-hidden {
+  grid-template-columns: 1fr;
+}
+
+.prompter-main.slides-hidden .slides-panel {
+  display: none;
+}
+
+/* Slides panel */
+.slides-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.slide-frame {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--r-md);
+  padding: var(--space-3);
+}
+
+.slide-frame-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.slide-label {
+  font-size: var(--t-caption);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.slide-num {
+  font-family: var(--font-mono);
+  font-size: var(--t-caption);
+  color: var(--xel-red);
+}
+
+.slide-img-wrap {
+  aspect-ratio: 16 / 9;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slide-img-wrap--small {
+  aspect-ratio: 16 / 9;
+  max-height: 100px;
+}
+
+.slide-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.slide-empty {
+  font-size: var(--t-caption);
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+  padding: var(--space-4);
+  line-height: 1.4;
+}
+
+.slide-nav {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+.presentation-upload .upload-zone {
+  margin: 0;
+  padding: var(--space-4);
 }
 
 .notes-panel h3 {
@@ -614,15 +743,46 @@
   color: var(--xel-red);
 }
 
+.prompter-fullscreen .fs-body-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(180px, 28%) 1fr;
+  gap: var(--space-5);
+}
+
+.prompter-fullscreen .fs-body-grid.slides-hidden {
+  grid-template-columns: 1fr;
+}
+
+.prompter-fullscreen .fs-body-grid.slides-hidden .fs-slides-panel {
+  display: none;
+}
+
+.fs-slides-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .prompter-fullscreen .fs-notes-panel {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   padding: var(--space-5) var(--space-6);
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--r-md);
   backdrop-filter: blur(8px);
+}
+
+.prompter-fullscreen .fs-notes-panel .notes-scrollable {
+  flex: 1;
+  max-height: none;
+  min-height: 0;
 }
 
 .prompter-fullscreen .fs-notes-label {
@@ -742,6 +902,18 @@
 
   .prompter-sidebar {
     order: 2;
+  }
+
+  .prompter-main {
+    grid-template-columns: 1fr;
+  }
+
+  .slides-panel {
+    order: -1;
+  }
+
+  .slide-img-wrap:not(.slide-img-wrap--small) {
+    max-height: 180px;
   }
 
   .chapter-fields {

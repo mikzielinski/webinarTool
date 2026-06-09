@@ -54,6 +54,21 @@
 
         <div id="chapters-list" class="chapters-list"></div>
 
+        <div class="card card-body presentation-upload" style="margin-top: var(--space-5);">
+          <h3 style="margin: 0 0 var(--space-3); font-size: var(--t-h4);">Presentation slides</h3>
+          <p style="margin: 0 0 var(--space-3); font-size: var(--t-small); color: var(--color-text-muted);">
+            Upload a PDF or multiple slide images (PNG/JPG). Shown in prompter as current + next slide.
+          </p>
+          <div class="editor-toolbar" style="margin-bottom: 0;">
+            <label class="upload-zone" id="slide-upload-zone" style="padding: var(--space-3) var(--space-4); border-width: 1px; flex: 1;">
+              <input id="slide-input" type="file" accept=".pdf,image/png,image/jpeg,image/webp,image/gif" multiple />
+              <strong>Upload PDF or images</strong>
+            </label>
+            <button id="btn-clear-slides" class="btn btn-ghost" type="button">Clear slides</button>
+          </div>
+          <p id="slide-deck-info" class="field-hint" style="margin-top: var(--space-3);">No presentation loaded</p>
+        </div>
+
         <div class="card card-body" style="margin-top: var(--space-6);">
           <h3 style="margin: 0 0 var(--space-3); font-size: var(--t-h4);">Quick test</h3>
           <p style="margin: 0 0 var(--space-3); font-size: var(--t-small); color: var(--color-text-muted);">
@@ -91,7 +106,7 @@
             <div class="card card-body">
               <div class="settings-row">
                 <input id="auto-advance" type="checkbox" checked />
-                <label for="auto-advance">Auto-advance to next chapter</label>
+                <label for="auto-advance">Auto-advance chapters</label>
               </div>
               <div class="settings-row" style="margin-top: var(--space-3);">
                 <label for="advance-delay">Advance delay</label>
@@ -102,6 +117,26 @@
                   <option value="10">10 sec</option>
                 </select>
               </div>
+              <hr style="border: none; border-top: 1px solid var(--color-border); margin: var(--space-4) 0;" />
+              <div class="settings-row">
+                <label for="notes-scroll-mode">Notes scroll</label>
+                <select id="notes-scroll-mode" class="select" style="width: auto; flex: 1;">
+                  <option value="timer">Sync with timer</option>
+                  <option value="slow">Auto — slow</option>
+                  <option value="medium">Auto — medium</option>
+                  <option value="fast">Auto — fast</option>
+                  <option value="off">Manual only</option>
+                </select>
+              </div>
+              <div class="settings-row" style="margin-top: var(--space-3);">
+                <input id="show-slides" type="checkbox" checked />
+                <label for="show-slides">Show slides panel</label>
+              </div>
+              <div class="settings-row" style="margin-top: var(--space-2);">
+                <input id="sync-slides-chapters" type="checkbox" checked />
+                <label for="sync-slides-chapters">Slide follows chapter</label>
+              </div>
+              <button id="btn-notes-scroll-reset" class="btn btn-ghost" type="button" style="margin-top: var(--space-3); width: 100%;">↺ Reset notes scroll</button>
             </div>
           </aside>
 
@@ -137,9 +172,46 @@
               </div>
             </div>
 
-            <div class="notes-panel">
-              <h3>Speaker notes</h3>
-              <div id="notes-content" class="notes-content empty">No notes for this chapter.</div>
+            <div class="prompter-main">
+              <div id="slides-panel" class="slides-panel">
+                <div class="slide-frame slide-frame--current">
+                  <div class="slide-frame-header">
+                    <span class="slide-label">Current slide</span>
+                    <span id="slide-current-num" class="slide-num">—</span>
+                  </div>
+                  <div class="slide-img-wrap">
+                    <img id="slide-current" class="slide-img" alt="Current slide" hidden />
+                    <div id="slide-current-empty" class="slide-empty">No presentation — upload PDF or images in Agenda setup</div>
+                  </div>
+                </div>
+                <div class="slide-frame slide-frame--next">
+                  <div class="slide-frame-header">
+                    <span class="slide-label">Next slide</span>
+                    <span id="slide-next-num" class="slide-num">—</span>
+                  </div>
+                  <div class="slide-img-wrap slide-img-wrap--small">
+                    <img id="slide-next" class="slide-img" alt="Next slide" hidden />
+                    <div id="slide-next-empty" class="slide-empty">—</div>
+                  </div>
+                </div>
+                <div class="slide-nav">
+                  <button id="btn-slide-prev" class="btn btn-ghost btn-on-dark btn-icon" type="button" title="Previous slide">←</button>
+                  <button id="btn-slide-next" class="btn btn-ghost btn-on-dark btn-icon" type="button" title="Next slide">→</button>
+                </div>
+              </div>
+
+              <div class="notes-panel">
+                <div class="notes-panel-header">
+                  <h3>Speaker notes</h3>
+                  <div class="notes-scroll-actions">
+                    <button id="btn-notes-up" class="btn btn-ghost btn-on-dark btn-icon" type="button" title="Scroll up">▲</button>
+                    <button id="btn-notes-down" class="btn btn-ghost btn-on-dark btn-icon" type="button" title="Scroll down">▼</button>
+                  </div>
+                </div>
+                <div class="notes-scrollable" id="notes-scroll-panel">
+                  <div id="notes-content" class="notes-content empty">No notes for this chapter.</div>
+                </div>
+              </div>
             </div>
 
             <div class="prompter-controls">
@@ -152,7 +224,9 @@
             </div>
 
             <p class="keyboard-hints">
-              <kbd>Space</kbd> start/pause · <kbd>←</kbd><kbd>→</kbd> prev/next · <kbd>R</kbd> reset · <kbd>F</kbd> fullscreen
+              <kbd>Space</kbd> start/pause · <kbd>←</kbd><kbd>→</kbd> chapter ·
+              <kbd>PgUp</kbd><kbd>PgDn</kbd> slide · <kbd>↑</kbd><kbd>↓</kbd> notes ·
+              <kbd>R</kbd> reset · <kbd>F</kbd> fullscreen
             </p>
           </div>
         </div>
@@ -179,9 +253,34 @@
       <div id="fs-progress-fill" class="progress-fill" style="width: 0%"></div>
     </div>
 
-    <div class="fs-notes-panel">
-      <h3 class="fs-notes-label">Speaker notes</h3>
-      <div id="fs-notes" class="notes-content">—</div>
+    <div class="fs-body-grid">
+      <div id="fs-slides-panel" class="fs-slides-panel">
+        <div class="slide-frame slide-frame--current">
+          <span class="slide-label">Current</span>
+          <div class="slide-img-wrap">
+            <img id="fs-slide-current" class="slide-img" alt="" hidden />
+          </div>
+        </div>
+        <div class="slide-frame slide-frame--next">
+          <span class="slide-label">Next</span>
+          <div class="slide-img-wrap slide-img-wrap--small">
+            <img id="fs-slide-next" class="slide-img" alt="" hidden />
+          </div>
+        </div>
+      </div>
+
+      <div class="fs-notes-panel">
+        <div class="notes-panel-header">
+          <h3 class="fs-notes-label">Speaker notes</h3>
+          <div class="notes-scroll-actions">
+            <button id="fs-btn-notes-up" class="btn btn-ghost btn-on-dark btn-icon" type="button">▲</button>
+            <button id="fs-btn-notes-down" class="btn btn-ghost btn-on-dark btn-icon" type="button">▼</button>
+          </div>
+        </div>
+        <div class="notes-scrollable" id="fs-notes-scroll-panel">
+          <div id="fs-notes" class="notes-content">—</div>
+        </div>
+      </div>
     </div>
 
     <div class="fs-controls">
