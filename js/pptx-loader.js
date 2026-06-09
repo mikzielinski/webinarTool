@@ -57,20 +57,91 @@ function canvasToDataUrl(canvas) {
   }
 }
 
-/** True when capture is essentially empty (blank white or black frame). */
-function isCanvasMostlyEmpty(canvas, threshold = 0.88) {
+/** Reject only truly blank captures (solid white or black), not dark-themed slides. */
+function hasVisibleContent(canvas, minRatio = 0.003) {
   const ctx = canvas.getContext("2d");
-  if (!ctx) return true;
+  if (!ctx) return false;
   const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  let empty = 0;
+  let interesting = 0;
   const total = width * height;
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-    if ((r > 248 && g > 248 && b > 248) || (r < 12 && g < 12 && b < 12)) empty++;
+    if (r > 252 && g > 252 && b > 252) continue;
+    if (r < 3 && g < 3 && b < 3) continue;
+    interesting++;
   }
-  return empty / total > threshold;
+  return interesting / total > minRatio;
+}
+
+async function captureElementToCanvas(el, width, height, backgroundColor = null) {
+  const html2canvas = await getHtml2Canvas();
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await new Promise((r) => setTimeout(r, 100));
+
+  const raw = await html2canvas(el, {
+    backgroundColor,
+    scale: 1,
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    onclone: (_doc, clone) => {
+      clone.style.opacity = "1";
+      clone.style.visibility = "visible";
+    },
+  });
+
+  const out = document.createElement("canvas");
+  out.width = width;
+  out.height = height;
+  const ctx = out.getContext("2d");
+  if (backgroundColor) {
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, width, height);
+  }
+  ctx.drawImage(raw, 0, 0, width, height);
+  return out;
+}
+
+async function renderSlideToJpeg(presentation, index, width, height) {
+  const { renderSlideToElement } = await getViewer();
+
+  const host = document.createElement("div");
+  host.setAttribute("aria-hidden", "true");
+  host.style.cssText = [
+    "position:fixed",
+    "left:0",
+    "top:0",
+    `width:${width}px`,
+    `height:${height}px`,
+    "overflow:visible",
+    "opacity:0.01",
+    "pointer-events:none",
+    "z-index:-1",
+  ].join(";");
+  document.body.appendChild(host);
+
+  try {
+    renderSlideToElement(presentation, index, host, { width, height });
+    const svg = host.querySelector("svg");
+    if (!svg) throw new Error("Brak SVG slajdu");
+    await inlineAllSvgImages(svg);
+    await waitForSvgImages(svg);
+
+    // Capture live DOM (not SVG clone) — preserves text + graphics.
+    let canvas = await captureElementToCanvas(host, width, height, null);
+    if (!hasVisibleContent(canvas)) {
+      canvas = await captureElementToCanvas(host, width, height, "#ffffff");
+    }
+    if (!hasVisibleContent(canvas)) {
+      throw new Error("Pusty podgląd slajdu (blank capture)");
+    }
+
+    return canvasToDataUrl(canvas);
+  } finally {
+    host.remove();
+  }
 }
 
 function svgImageHref(el) {
@@ -133,98 +204,6 @@ async function waitForSvgImages(svg) {
   await Promise.all(tasks);
 }
 
-
-async function renderSvgToCanvas(svg, width, height) {
-  const html2canvas = await getHtml2Canvas();
-  const wrap = document.createElement("div");
-  wrap.style.cssText = `width:${width}px;height:${height}px;overflow:visible;background:#fff;`;
-  const clone = svg.cloneNode(true);
-  clone.setAttribute("width", String(width));
-  clone.setAttribute("height", String(height));
-  clone.style.width = `${width}px`;
-  clone.style.height = `${height}px`;
-  clone.style.display = "block";
-  wrap.appendChild(clone);
-
-  const mount = document.createElement("div");
-  mount.setAttribute("aria-hidden", "true");
-  mount.style.cssText = [
-    "position:fixed",
-    "left:0",
-    "top:0",
-    "opacity:0.01",
-    "pointer-events:none",
-    "z-index:-1",
-  ].join(";");
-  mount.appendChild(wrap);
-  document.body.appendChild(mount);
-
-  try {
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    await new Promise((r) => setTimeout(r, 80));
-
-    // Do NOT pass width/height to html2canvas — it crops to viewport and shows only top-left.
-    const canvas = await html2canvas(wrap, {
-      backgroundColor: "#ffffff",
-      scale: 1,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      onclone: (_doc, el) => {
-        el.style.opacity = "1";
-        el.style.visibility = "visible";
-      },
-    });
-
-    const out = document.createElement("canvas");
-    out.width = width;
-    out.height = height;
-    const ctx = out.getContext("2d");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, width, height);
-    ctx.drawImage(canvas, 0, 0, width, height);
-    return out;
-  } finally {
-    mount.remove();
-  }
-}
-
-async function renderSlideToJpeg(presentation, index, width, height) {
-  const { renderSlideToElement } = await getViewer();
-
-  const host = document.createElement("div");
-  host.setAttribute("aria-hidden", "true");
-  host.style.cssText = [
-    "position:fixed",
-    "left:0",
-    "top:0",
-    `width:${width}px`,
-    `height:${height}px`,
-    "overflow:visible",
-    "opacity:0.01",
-    "pointer-events:none",
-    "z-index:-1",
-  ].join(";");
-  document.body.appendChild(host);
-
-  try {
-    renderSlideToElement(presentation, index, host, { width, height });
-    const svg = host.querySelector("svg");
-    if (!svg) throw new Error("Brak SVG slajdu");
-    await inlineAllSvgImages(svg);
-    await waitForSvgImages(svg);
-
-    const canvas = await renderSvgToCanvas(svg, width, height);
-
-    if (isCanvasMostlyEmpty(canvas)) {
-      throw new Error("Pusty podgląd slajdu (blank capture)");
-    }
-
-    return canvasToDataUrl(canvas);
-  } finally {
-    host.remove();
-  }
-}
 
 async function renderWithViewer(presentation, onProgress) {
   const total = presentation.slides.length;
