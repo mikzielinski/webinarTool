@@ -223,25 +223,89 @@ body {
 
 /* Progress bar — brand gradient */
 .progress-track {
-  height: 8px;
+  height: 12px;
   background: var(--xel-grey-light);
   border-radius: var(--r-pill);
   overflow: hidden;
+  box-shadow: inset 0 1px 4px rgba(8, 22, 45, 0.12);
 }
 
 .prompter-theme .progress-track {
-  background: rgba(255, 255, 255, 0.12);
+  height: 16px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .progress-fill {
+  position: relative;
   height: 100%;
   background: var(--xel-gradient);
   border-radius: var(--r-pill);
   transition: width 100ms linear;
+  box-shadow:
+    0 0 14px rgba(227, 6, 19, 0.65),
+    0 0 6px rgba(227, 6, 19, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.progress-fill::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  bottom: 2px;
+  width: 5px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+  animation: progress-edge-pulse 1.4s ease-in-out infinite;
 }
 
 .progress-fill.overall {
   background: var(--xel-gradient-soft);
+  box-shadow:
+    0 0 14px rgba(44, 39, 96, 0.55),
+    0 0 8px rgba(227, 6, 19, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.progress-running .progress-fill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 60%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  animation: progress-shimmer 2.2s linear infinite;
+}
+
+@keyframes progress-edge-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scaleY(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes progress-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
 }
 
 /* Badge */

@@ -72,6 +72,7 @@ async function init() {
   applyPrompterSettingsUI();
   renderEditor();
   renderSlideDeckInfo();
+  renderSlidePicker();
   renderSlides();
   renderPrompter();
 }
@@ -653,6 +654,12 @@ function renderPrompter() {
 
   notesScroller.syncToProgress(chapterProg);
   notesScroller.setRunning(engine.running);
+
+  const running = engine.getState().running;
+  document.body.classList.toggle("progress-running", running);
+  $("#prompter-content")?.classList.toggle("progress-running", running);
+  $("#prompter-fullscreen")?.classList.toggle("progress-running", running);
+
   if (engine.running && notesScroller.mode !== "off" && notesScroller.mode !== "timer") {
     notesScroller.startLoop();
   }

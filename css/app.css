@@ -374,7 +374,22 @@
 
 .prompter-theme .prompter-stage .timer-meta,
 .prompter-theme .prompter-stage .progress-labels {
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: var(--t-small);
+}
+
+.prompter-theme .prompter-stage .progress-labels span:last-child {
+  color: var(--xel-white);
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+}
+
+.prompter-theme .progress-section {
+  gap: var(--space-3);
+}
+
+.prompter-fullscreen .progress-track {
+  height: 18px;
 }
 
 .prompter-theme .prompter-stage .notes-panel {
