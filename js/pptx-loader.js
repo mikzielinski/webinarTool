@@ -1,22 +1,26 @@
 /**
- * PPTX loader — full slide preview via pptx-viewer, rasterized to JPEG for thumbnails.
- * Falls back to ZIP image extraction if the renderer fails.
+ * PPTX loader — full slide preview via pptx-viewer + html2canvas.
+ * Inlines embedded images as data: URLs, then captures DOM (text + graphics + photos).
  */
 
 const RENDER_WIDTH = 1280;
-const SLIDE_RENDER_TIMEOUT_MS = 15000;
+const SLIDE_RENDER_TIMEOUT_MS = 20000;
 const VIEWER_URL = new URL("./vendor/pptx-viewer.js", import.meta.url).href;
+const HTML2CANVAS_URL = new URL("./vendor/html2canvas.js", import.meta.url).href;
 
 let viewerModule = null;
+let html2canvasModule = null;
 
 async function getViewer() {
   if (viewerModule) return viewerModule;
-  try {
-    viewerModule = await import(VIEWER_URL);
-    return viewerModule;
-  } catch (err) {
-    throw new Error(`Nie udało się wczytać silnika PPTX: ${err.message}`);
-  }
+  viewerModule = await import(VIEWER_URL);
+  return viewerModule;
+}
+
+async function getHtml2Canvas() {
+  if (html2canvasModule) return html2canvasModule;
+  html2canvasModule = (await import(HTML2CANVAS_URL)).default;
+  return html2canvasModule;
 }
 
 function withTimeout(promise, ms, message) {
@@ -28,7 +32,6 @@ function withTimeout(promise, ms, message) {
 
 function slidePreviewText(slide) {
   const parts = [];
-
   function walk(elements) {
     for (const el of elements || []) {
       if (el.type === "text" && el.text?.paragraphs) {
@@ -42,7 +45,6 @@ function slidePreviewText(slide) {
       if (el.children?.length) walk(el.children);
     }
   }
-
   walk(slide?.elements);
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
@@ -55,35 +57,117 @@ function canvasToDataUrl(canvas) {
   }
 }
 
-async function renderSlideToJpeg(presentation, index, width, height) {
-  const { renderSlideToCanvas } = await getViewer();
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-
-  await withTimeout(
-    renderSlideToCanvas(presentation, index, canvas),
-    SLIDE_RENDER_TIMEOUT_MS,
-    `Timeout renderu slajdu ${index + 1}`
+function svgImageHref(el) {
+  return (
+    el.getAttribute("href") ||
+    el.getAttributeNS("http://www.w3.org/1999/xlink", "href") ||
+    ""
   );
+}
 
-  return canvasToDataUrl(canvas);
+async function hrefToDataUrl(href) {
+  if (!href || href.startsWith("data:")) return href;
+  if (href.startsWith("blob:")) {
+    const res = await fetch(href);
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+  const res = await fetch(href);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
+/** Replace blob:/http refs in all SVG <image> nodes (including pattern fills). */
+async function inlineAllSvgImages(svg) {
+  const images = svg.querySelectorAll("image");
+  for (const el of images) {
+    const href = svgImageHref(el);
+    if (!href || href.startsWith("data:")) continue;
+    try {
+      const dataUrl = await hrefToDataUrl(href);
+      el.setAttribute("href", dataUrl);
+      el.removeAttributeNS("http://www.w3.org/1999/xlink", "href");
+    } catch (err) {
+      console.warn("Could not inline SVG image:", err);
+    }
+  }
+}
+
+/** Ensure embedded data: images are decoded before canvas export. */
+async function waitForSvgImages(svg) {
+  const tasks = [...svg.querySelectorAll("image")].map((el) => {
+    const href = svgImageHref(el);
+    if (!href?.startsWith("data:")) return Promise.resolve();
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = img.onerror = () => resolve();
+      img.src = href;
+    });
+  });
+  await Promise.all(tasks);
+}
+
+
+async function renderSlideToJpeg(presentation, index, width, height) {
+  const { renderSlideToElement } = await getViewer();
+  const html2canvas = await getHtml2Canvas();
+
+  const host = document.createElement("div");
+  host.style.cssText = `position:fixed;left:-20000px;top:0;width:${width}px;height:${height}px;overflow:hidden;background:#fff;`;
+  document.body.appendChild(host);
+
+  try {
+    renderSlideToElement(presentation, index, host, { width, height });
+    const svg = host.querySelector("svg");
+    if (!svg) throw new Error("Brak SVG slajdu");
+    await inlineAllSvgImages(svg);
+    await waitForSvgImages(svg);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const canvas = await html2canvas(host, {
+      backgroundColor: "#ffffff",
+      scale: 1,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      width,
+      height,
+      windowWidth: width,
+      windowHeight: height,
+    });
+    return canvasToDataUrl(canvas);
+  } finally {
+    host.remove();
+  }
 }
 
 async function renderWithViewer(presentation, onProgress) {
   const total = presentation.slides.length;
   if (!total) throw new Error("PPTX nie zawiera slajdów");
 
-  const aspect = presentation.slideSize.height / presentation.slideSize.width;
   const width = RENDER_WIDTH;
-  const height = Math.round(width * aspect);
+  const height = Math.round(width * (presentation.slideSize.height / presentation.slideSize.width));
   const slides = [];
 
   for (let i = 0; i < total; i++) {
     const preview = slidePreviewText(presentation.slides[i]);
     let dataUrl;
     try {
-      dataUrl = await renderSlideToJpeg(presentation, i, width, height);
+      dataUrl = await withTimeout(
+        renderSlideToJpeg(presentation, i, width, height),
+        SLIDE_RENDER_TIMEOUT_MS,
+        `Timeout renderu slajdu ${i + 1}`
+      );
     } catch (err) {
       console.warn(`Slide ${i + 1} render failed:`, err);
       dataUrl = await renderPlaceholder(i + 1, preview);
@@ -111,7 +195,7 @@ async function loadWithViewer(source, onProgress) {
   }
 }
 
-/* ── Legacy ZIP fallback (embedded images + text placeholder) ── */
+/* ── Legacy ZIP fallback ── */
 
 let JSZip = null;
 
@@ -163,14 +247,7 @@ async function blobToDataUrl(blob, mime) {
 
 function guessMime(path) {
   const ext = path.split(".").pop()?.toLowerCase();
-  const m = {
-    png: "image/png",
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    gif: "image/gif",
-    webp: "image/webp",
-  };
-  return m[ext] || "image/png";
+  return { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" }[ext] || "image/png";
 }
 
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
@@ -195,19 +272,14 @@ async function renderPlaceholder(slideNum, previewText) {
   canvas.width = 1280;
   canvas.height = 720;
   const ctx = canvas.getContext("2d");
-
   ctx.fillStyle = "#08162D";
   ctx.fillRect(0, 0, 1280, 720);
-
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 42px 'Segoe UI', system-ui, sans-serif";
   ctx.fillText(`Slajd ${slideNum}`, 80, 100);
-
   ctx.fillStyle = "rgba(255,255,255,0.8)";
   ctx.font = "24px 'Segoe UI', system-ui, sans-serif";
-  const text = (previewText || "Podgląd niedostępny — użyj PDF lub ponów upload PPTX").slice(0, 280);
-  wrapText(ctx, text, 80, 160, 1120, 32);
-
+  wrapText(ctx, (previewText || "Podgląd niedostępny").slice(0, 280), 80, 160, 1120, 32);
   return canvasToDataUrl(canvas);
 }
 
@@ -217,7 +289,6 @@ async function slideImagesFromRels(zip, slidePath) {
   const relsXml = await zip.file(relsPath)?.async("text");
   const rels = parseRelTargets(relsXml);
   const images = [];
-
   for (const target of Object.values(rels)) {
     if (!target.includes("/media/")) continue;
     const file = zip.file(target);
@@ -227,16 +298,9 @@ async function slideImagesFromRels(zip, slidePath) {
     const mime = guessMime(target);
     if (mime.includes("emf") || mime.includes("wmf")) continue;
     try {
-      images.push({
-        path: target,
-        dataUrl: await blobToDataUrl(blob, mime),
-        size: blob.size,
-      });
-    } catch {
-      /* skip */
-    }
+      images.push({ path: target, dataUrl: await blobToDataUrl(blob, mime), size: blob.size });
+    } catch { /* skip */ }
   }
-
   images.sort((a, b) => b.size - a.size);
   return images;
 }
@@ -244,48 +308,34 @@ async function slideImagesFromRels(zip, slidePath) {
 async function loadWithZip(arrayBuffer, onProgress) {
   const JSZ = await getJSZip();
   const zip = await JSZ.loadAsync(arrayBuffer);
-
   const presXml = await zip.file("ppt/presentation.xml")?.async("text");
   if (!presXml) throw new Error("Nieprawidłowy PPTX — brak presentation.xml");
-
-  const presRelsXml = await zip.file("ppt/_rels/presentation.xml.rels")?.async("text");
-  const presRels = parseRelTargets(presRelsXml);
-  const slidePaths = extractSlideIds(presXml)
-    .map((rid) => presRels[rid])
-    .filter((p) => p && p.includes("slides/slide"));
-
+  const presRels = parseRelTargets(await zip.file("ppt/_rels/presentation.xml.rels")?.async("text"));
+  const slidePaths = extractSlideIds(presXml).map((rid) => presRels[rid]).filter((p) => p?.includes("slides/slide"));
   if (!slidePaths.length) throw new Error("Nie znaleziono slajdów w PPTX");
 
   const perSlideImages = [];
   const usage = new Map();
-
   for (const path of slidePaths) {
     const imgs = await slideImagesFromRels(zip, path);
     perSlideImages.push(imgs);
-    for (const img of imgs) {
-      usage.set(img.path, (usage.get(img.path) || 0) + 1);
-    }
+    for (const img of imgs) usage.set(img.path, (usage.get(img.path) || 0) + 1);
   }
 
-  const slideCount = slidePaths.length;
-  const sharedThreshold = Math.max(2, Math.ceil(slideCount * 0.35));
-
+  const sharedThreshold = Math.max(2, Math.ceil(slidePaths.length * 0.35));
   const slides = [];
   for (let i = 0; i < slidePaths.length; i++) {
-    const slideXml = await zip.file(slidePaths[i])?.async("text");
-    const preview = extractTexts(slideXml);
+    const preview = extractTexts(await zip.file(slidePaths[i])?.async("text"));
     const candidates = perSlideImages[i].filter((img) => (usage.get(img.path) || 0) < sharedThreshold);
     const pick = candidates[0] || perSlideImages[i][0];
-
     slides.push({
       id: i + 1,
       dataUrl: pick ? pick.dataUrl : await renderPlaceholder(i + 1, preview),
       name: preview ? preview.slice(0, 80) : `Slide ${i + 1}`,
       preview,
     });
-    onProgress?.(i + 1, slideCount);
+    onProgress?.(i + 1, slidePaths.length);
   }
-
   return slides;
 }
 
@@ -307,6 +357,5 @@ export async function loadPptxSlides(arrayBuffer, onProgress) {
 }
 
 export async function loadPptxFromFile(file, onProgress) {
-  const buf = await file.arrayBuffer();
-  return loadPptxBuffer(buf, onProgress);
+  return loadPptxBuffer(await file.arrayBuffer(), onProgress);
 }
