@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Xelto Webinar Prompter</title>
+  <link rel="stylesheet" href="css/xelto.css" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">X</div>
+        <div class="brand-text">
+          <h1>Webinar Prompter</h1>
+          <span>Xelto recording assistant</span>
+        </div>
+      </div>
+      <nav class="nav-tabs" role="tablist">
+        <button class="nav-tab active" data-view="editor" role="tab">Agenda setup</button>
+        <button class="nav-tab" data-view="prompter" role="tab">Live prompter</button>
+      </nav>
+    </header>
+
+    <main class="app-main">
+      <!-- Editor -->
+      <section id="editor-view" class="view active">
+        <div class="editor-toolbar">
+          <button id="btn-add-chapter" class="btn btn-primary">+ Add chapter</button>
+          <button id="btn-load-sample" class="btn btn-secondary">Load sample</button>
+          <label class="upload-zone" id="upload-zone" style="padding: var(--space-2) var(--space-4); border-width: 1px;">
+            <input id="file-input" type="file" accept=".json,.md,.markdown,.txt" />
+            <strong>Upload agenda</strong>
+            <span style="font-size: var(--text-xs); color: var(--color-text-muted); margin-left: 8px;">JSON · Markdown · TXT</span>
+          </label>
+          <button id="btn-export" class="btn btn-secondary">Export JSON</button>
+          <span class="spacer"></span>
+          <button id="btn-start-prompter" class="btn btn-primary btn-lg">Start prompter →</button>
+        </div>
+
+        <div class="webinar-meta">
+          <div>
+            <label class="label" for="webinar-title">Webinar title</label>
+            <input id="webinar-title" class="input" type="text" placeholder="e.g. Q2 Product Update" />
+          </div>
+          <div class="total-time">
+            <span class="total-time-label">Total duration</span>
+            <span id="total-time-value" class="total-time-value">0 min</span>
+          </div>
+        </div>
+
+        <div id="chapters-list" class="chapters-list"></div>
+
+        <div class="card card-body" style="margin-top: var(--space-6);">
+          <h3 style="margin: 0 0 var(--space-3); font-size: var(--text-base);">Import format tips</h3>
+          <p style="margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.7;">
+            <strong>Markdown:</strong> use <code>## Chapter title - 4 min</code> headings with notes below.<br />
+            <strong>JSON:</strong> <code>{ "title": "...", "chapters": [{ "title": "Intro", "durationMinutes": 4, "notes": "..." }] }</code><br />
+            <strong>Plain text:</strong> one block per chapter, blank line between — first line is title (optional time in parentheses).
+          </p>
+        </div>
+      </section>
+
+      <!-- Prompter -->
+      <section id="prompter-view" class="view prompter-view">
+        <div id="prompter-empty" class="empty-state card card-body" style="display: none;">
+          <h3>No agenda loaded</h3>
+          <p>Go to Agenda setup and add chapters first.</p>
+        </div>
+
+        <div id="prompter-content" class="prompter-layout">
+          <aside class="prompter-sidebar">
+            <div class="card card-body">
+              <div style="font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted);">Webinar</div>
+              <div id="prompter-webinar-title" style="font-weight: 700; font-size: var(--text-lg); margin-top: var(--space-1);">—</div>
+            </div>
+
+            <div class="card card-body" style="flex: 1; display: flex; flex-direction: column; min-height: 200px;">
+              <div style="font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); margin-bottom: var(--space-3);">Agenda outline</div>
+              <div id="agenda-outline" class="agenda-outline"></div>
+            </div>
+
+            <div class="card card-body">
+              <div class="settings-row">
+                <input id="auto-advance" type="checkbox" checked />
+                <label for="auto-advance">Auto-advance to next chapter</label>
+              </div>
+              <div class="settings-row" style="margin-top: var(--space-3);">
+                <label for="advance-delay">Advance delay</label>
+                <select id="advance-delay" class="select" style="width: auto;">
+                  <option value="2">2 sec</option>
+                  <option value="3" selected>3 sec</option>
+                  <option value="5">5 sec</option>
+                  <option value="10">10 sec</option>
+                </select>
+              </div>
+            </div>
+          </aside>
+
+          <div class="prompter-stage">
+            <div class="prompter-header">
+              <div>
+                <div id="chapter-number" class="chapter-label">Chapter 1 of 5</div>
+                <h2 id="chapter-title-display" class="chapter-title">Intro</h2>
+              </div>
+              <div class="timer-block">
+                <div id="timer-display" class="timer-display">04:00</div>
+                <div class="timer-meta"><span id="timer-planned">/ 04:00 planned</span></div>
+              </div>
+            </div>
+
+            <div class="progress-section">
+              <div class="progress-labels">
+                <span>This chapter</span>
+                <span id="chapter-progress-label">0%</span>
+              </div>
+              <div class="progress-track">
+                <div id="chapter-progress-fill" class="progress-fill" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div class="progress-section">
+              <div class="progress-labels">
+                <span>Overall webinar</span>
+                <span id="overall-progress-label">0%</span>
+              </div>
+              <div class="progress-track">
+                <div id="overall-progress-fill" class="progress-fill overall" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div class="notes-panel">
+              <h3>Speaker notes</h3>
+              <div id="notes-content" class="notes-content empty">No notes for this chapter.</div>
+            </div>
+
+            <div class="prompter-controls">
+              <button id="btn-prev" class="btn btn-secondary" title="Previous chapter">← Prev</button>
+              <button id="btn-play-pause" class="btn btn-primary btn-lg">Start</button>
+              <button id="btn-next" class="btn btn-secondary" title="Next chapter">Next →</button>
+              <button id="btn-reset-chapter" class="btn btn-ghost" title="Reset chapter timer">↺ Reset</button>
+              <button id="btn-add-minute" class="btn btn-ghost" title="Add 1 minute">+1 min</button>
+              <button id="btn-fullscreen" class="btn btn-secondary" title="Fullscreen mode">⛶ Fullscreen</button>
+            </div>
+
+            <p class="keyboard-hints">
+              <kbd>Space</kbd> start/pause · <kbd>←</kbd><kbd>→</kbd> prev/next · <kbd>R</kbd> reset · <kbd>F</kbd> fullscreen
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Fullscreen overlay -->
+  <div id="prompter-fullscreen" class="prompter-fullscreen prompter-theme">
+    <button id="btn-exit-fullscreen" class="btn btn-secondary fullscreen-exit">Exit fullscreen</button>
+    <div class="fullscreen-top">
+      <div>
+        <div class="chapter-label" id="fs-chapter-number">Now presenting</div>
+        <h2 id="fs-chapter-title" class="chapter-title">—</h2>
+      </div>
+      <div id="fs-timer" class="timer-display">00:00</div>
+    </div>
+    <div class="progress-track" style="margin-bottom: var(--space-6); height: 12px;">
+      <div id="fs-progress-fill" class="progress-fill" style="width: 0%"></div>
+    </div>
+    <div class="notes-panel" style="flex: 1; border: none;">
+      <div id="fs-notes" class="notes-content">—</div>
+    </div>
+  </div>
+
+  <!-- Auto-advance countdown -->
+  <div id="advance-overlay" class="advance-overlay">
+    <div class="advance-overlay-content">
+      <div id="advance-count" class="advance-countdown">3</div>
+      <p>Next chapter starting… <button id="advance-cancel" class="btn btn-secondary" style="margin-left: 8px;">Cancel</button></p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
