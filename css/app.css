@@ -290,10 +290,44 @@
   background: var(--xel-grey-bg);
 }
 
+.prompter-theme .outline-item {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.prompter-theme .outline-item .title {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.prompter-theme .outline-item .time {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.prompter-theme .outline-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .outline-item.current {
   background: var(--xel-red-50);
   border-left: 3px solid var(--xel-red);
   padding-left: calc(var(--space-2) - 3px);
+}
+
+.prompter-theme .outline-item.current {
+  background: rgba(227, 6, 19, 0.22);
+  border-left-color: var(--xel-red);
+}
+
+.prompter-theme .outline-item.current .title {
+  color: var(--xel-white);
+}
+
+.prompter-theme .outline-item.current .outline-num {
+  color: var(--xel-red);
+  filter: brightness(1.3);
+}
+
+.prompter-theme .outline-item.current .time {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .outline-item.done {
