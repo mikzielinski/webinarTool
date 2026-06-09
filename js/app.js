@@ -380,8 +380,9 @@ function renderOutline(currentIdx) {
       else if (i < currentIdx) cls += " done";
       return `
       <div class="${cls}" data-goto="${i}">
-        <span class="time">${ch.durationMinutes}m</span>
+        <span class="outline-num">${String(i + 1).padStart(2, "0")}</span>
         <span class="title">${esc(ch.title)}</span>
+        <span class="time">${ch.durationMinutes}m</span>
         ${i < currentIdx ? '<span class="badge badge-done">✓</span>' : i === currentIdx ? '<span class="badge badge-active">NOW</span>' : ""}
       </div>`;
     })
