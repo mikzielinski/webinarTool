@@ -268,7 +268,10 @@ async function handleSlideFiles(files) {
     renderSlidePicker();
     updateSlidesVisibility();
   } catch (err) {
-    showToast("Slide load failed: " + err.message);
+    console.error("Slide load failed:", err);
+    showToast("Błąd wczytywania: " + (err.message || err));
+    const el = $("#slide-deck-info");
+    if (el) el.textContent = "Błąd: " + (err.message || "nieznany");
   }
 }
 
