@@ -13,6 +13,8 @@ export function createChapter(overrides = {}) {
     title: "New chapter",
     durationMinutes: 5,
     notes: "",
+    slideStart: null,
+    slideEnd: null,
     ...overrides,
   };
 }
@@ -101,6 +103,8 @@ function normalizeAgenda(data) {
       title: ch.title || ch.name || `Chapter ${i + 1}`,
       durationMinutes: Number(ch.durationMinutes ?? ch.duration ?? ch.minutes ?? 5) || 5,
       notes: ch.notes || ch.content || ch.description || "",
+      slideStart: ch.slideStart ?? null,
+      slideEnd: ch.slideEnd ?? null,
     })
   );
 

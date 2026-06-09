@@ -13,18 +13,21 @@ import {
 import { PrompterEngine } from "./prompter.js";
 import { NotesScroller, loadScrollMode, saveScrollMode, loadPrompterSettings, savePrompterSettings } from "./notes-scroll.js";
 import { SlideDeck } from "./slides.js";
+import { formatSlideRange, resolveChapterSlideRange } from "./chapter-slides.js";
 
 const state = {
   agenda: loadAgenda(),
   view: "editor",
   dragIndex: null,
   lastChapterIndex: -1,
+  pickingSlideForChapter: null,
 };
 
 const slideDeck = new SlideDeck();
 slideDeck.onChange = () => {
   renderSlides();
   renderSlideDeckInfo();
+  renderSlidePicker();
 };
 
 const notesScroller = new NotesScroller(() => [
@@ -88,7 +91,7 @@ function switchView(view) {
     document.body.classList.add("prompter-theme");
     state.lastChapterIndex = -1;
     engine.load(state.agenda);
-    slideDeck.syncToChapter(engine.chapterIndex);
+    slideDeck.syncToChapter(engine.chapterIndex, state.agenda.chapters);
     notesScroller.resetScroll();
     renderPrompter();
   } else {
@@ -125,7 +128,7 @@ function updateSlidesVisibility() {
 
 function onChapterChanged(idx) {
   notesScroller.resetScroll();
-  slideDeck.syncToChapter(idx);
+  slideDeck.syncToChapter(idx, state.agenda.chapters);
   state.lastChapterIndex = idx;
 }
 
@@ -200,7 +203,15 @@ function bindEditor() {
 
   $("#btn-clear-slides").addEventListener("click", async () => {
     await slideDeck.clear();
+    state.pickingSlideForChapter = null;
+    renderSlidePicker();
     showToast("Presentation cleared");
+  });
+
+  $("#btn-slide-picker-cancel").addEventListener("click", () => {
+    state.pickingSlideForChapter = null;
+    renderSlidePicker();
+    renderEditor();
   });
 }
 
@@ -209,8 +220,10 @@ async function handleSlideFiles(files) {
   try {
     showToast("Loading presentation…");
     await slideDeck.loadFiles(files);
-    showToast(`Loaded ${slideDeck.count} slides from "${slideDeck.fileName}"`);
+    const typeLabel = slideDeck.fileType === "pptx" ? "PPTX" : slideDeck.fileType.toUpperCase();
+    showToast(`${typeLabel}: ${slideDeck.count} slides from "${slideDeck.fileName}"`);
     renderSlideDeckInfo();
+    renderSlidePicker();
     updateSlidesVisibility();
   } catch (err) {
     showToast("Slide load failed: " + err.message);
@@ -224,7 +237,53 @@ function renderSlideDeckInfo() {
     el.textContent = "No presentation loaded";
     return;
   }
-  el.textContent = `${slideDeck.count} slides · ${slideDeck.fileName}`;
+  el.textContent = `${slideDeck.count} slides · ${slideDeck.fileName} (${slideDeck.fileType || "file"})`;
+}
+
+function renderSlidePicker() {
+  const panel = $("#slide-picker-panel");
+  const grid = $("#slide-picker-grid");
+  const hint = $("#slide-picker-hint");
+  if (!panel || !grid) return;
+
+  if (!slideDeck.count) {
+    panel.hidden = true;
+    return;
+  }
+
+  panel.hidden = false;
+  const pickIdx = state.pickingSlideForChapter;
+  hint.textContent = pickIdx !== null
+    ? `Wybierz slajd START dla chapteru ${pickIdx + 1} („${state.agenda.chapters[pickIdx]?.title}”)`
+    : "Kliknij „Przypisz” przy chapterze, potem slajd na miniaturze";
+
+  grid.innerHTML = slideDeck.slides
+    .map(
+      (s, i) => `
+    <button type="button" class="slide-picker-thumb ${pickIdx !== null ? "picking-active" : ""}" data-slide="${i + 1}" title="${esc(s.name)}">
+      <img src="${s.dataUrl}" alt="Slide ${i + 1}" loading="lazy" />
+      <span>${i + 1}</span>
+    </button>`
+    )
+    .join("");
+
+  grid.querySelectorAll("[data-slide]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const slideNum = Number(btn.dataset.slide);
+      if (state.pickingSlideForChapter !== null) {
+        const i = state.pickingSlideForChapter;
+        state.agenda.chapters[i].slideStart = slideNum;
+        if (state.agenda.chapters[i].slideEnd != null && state.agenda.chapters[i].slideEnd < slideNum) {
+          state.agenda.chapters[i].slideEnd = null;
+        }
+        persist();
+        state.pickingSlideForChapter = null;
+        renderEditor();
+        renderSlidePicker();
+        showToast(`Chapter ${i + 1} → slajd ${slideNum}`);
+      }
+    });
+  });
 }
 
 function handleAgendaFiles(files) {
@@ -259,9 +318,18 @@ function renderEditor() {
   }
 
   list.innerHTML = state.agenda.chapters
-    .map(
-      (ch, i) => `
-    <div class="chapter-card" draggable="true" data-index="${i}">
+    .map((ch, i) => {
+      const range =
+        slideDeck.count && (ch.slideStart || ch.slideEnd)
+          ? formatSlideRange(
+              ...Object.values(resolveChapterSlideRange(state.agenda.chapters, i, slideDeck.count)).slice(0, 2)
+            )
+          : ch.slideStart
+            ? `${ch.slideStart}+`
+            : "";
+      const picking = state.pickingSlideForChapter === i ? " picking-slide" : "";
+      return `
+    <div class="chapter-card${picking}" draggable="true" data-index="${i}">
       <div class="chapter-drag" title="Drag to reorder">
         <span class="chapter-index">${String(i + 1).padStart(2, "0")}</span>
         <span aria-hidden="true">⠿</span>
@@ -279,17 +347,38 @@ function renderEditor() {
           <label class="label">Speaker notes</label>
           <textarea class="textarea chapter-notes-input" data-field="notes" data-index="${i}" rows="3">${esc(ch.notes)}</textarea>
         </div>
+        <div class="slide-map-fields">
+          <div>
+            <label class="label">Slajd od</label>
+            <input class="input chapter-slide-input" type="number" min="1" max="999" placeholder="Auto" data-field="slideStart" data-index="${i}" value="${ch.slideStart ?? ""}" />
+          </div>
+          <div>
+            <label class="label">Slajd do</label>
+            <input class="input chapter-slide-input" type="number" min="1" max="999" placeholder="Auto" data-field="slideEnd" data-index="${i}" value="${ch.slideEnd ?? ""}" />
+          </div>
+          <span class="field-hint-inline">${range ? `→ ${range}` : slideDeck.count ? "auto = nr chapteru" : "brak decku"}</span>
+          <button type="button" class="btn btn-secondary btn-pick-slide" data-index="${i}" ${slideDeck.count ? "" : "disabled"}>Przypisz</button>
+        </div>
       </div>
       <div class="chapter-actions">
         <button class="btn btn-ghost btn-icon btn-duplicate" data-index="${i}" title="Duplicate">⧉</button>
         <button class="btn btn-ghost btn-icon btn-delete" data-index="${i}" title="Delete">✕</button>
       </div>
-    </div>`
-    )
+    </div>`;
+    })
     .join("");
 
-  list.querySelectorAll(".chapter-title-input, .chapter-min-input, .chapter-notes-input").forEach((el) => {
+  list.querySelectorAll(".chapter-title-input, .chapter-min-input, .chapter-notes-input, .chapter-slide-input").forEach((el) => {
     el.addEventListener("input", onChapterFieldChange);
+  });
+
+  list.querySelectorAll(".btn-pick-slide").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.pickingSlideForChapter = Number(btn.dataset.index);
+      renderEditor();
+      renderSlidePicker();
+      document.getElementById("slide-picker-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
   });
 
   list.querySelectorAll(".btn-delete").forEach((btn) => {
@@ -304,7 +393,13 @@ function renderEditor() {
   list.querySelectorAll(".btn-duplicate").forEach((btn) => {
     btn.addEventListener("click", () => {
       const i = Number(btn.dataset.index);
-      const copy = { ...state.agenda.chapters[i], id: crypto.randomUUID() };
+      const src = state.agenda.chapters[i];
+      const copy = {
+        ...src,
+        id: crypto.randomUUID(),
+        slideStart: src.slideStart,
+        slideEnd: src.slideEnd,
+      };
       state.agenda.chapters.splice(i + 1, 0, copy);
       persist();
       renderEditor();
@@ -318,11 +413,18 @@ function onChapterFieldChange(e) {
   const i = Number(e.target.dataset.index);
   const field = e.target.dataset.field;
   let val = e.target.value;
-  if (field === "durationMinutes") val = Math.max(1, Number(val) || 1);
+  if (field === "durationMinutes") {
+    val = Math.max(1, Number(val) || 1);
+  } else if (field === "slideStart" || field === "slideEnd") {
+    val = val === "" ? null : Math.max(1, Number(val) || 1);
+  }
   state.agenda.chapters[i][field] = val;
   persist();
   if (field === "durationMinutes") {
     $("#total-time-value").textContent = formatDuration(totalDurationMinutes(state.agenda));
+  }
+  if (field === "slideStart" || field === "slideEnd") {
+    renderEditor();
   }
 }
 
@@ -382,23 +484,25 @@ function setSlideImage(imgId, emptyId, numId, slide, numLabel) {
 function renderSlides() {
   const total = slideDeck.count;
   const i = slideDeck.slideIndex;
+  const nextSlide = slideDeck.nextInChapter ?? slideDeck.next;
+  const range = slideDeck.chapterRange;
 
   setSlideImage(
     "slide-current",
     "slide-current-empty",
     "slide-current-num",
     slideDeck.current,
-    total ? `${i + 1} / ${total}` : "—"
+    total ? `${i + 1} / ${total}${range ? ` · ${formatSlideRange(range.start, range.end)}` : ""}` : "—"
   );
   setSlideImage(
     "slide-next",
     "slide-next-empty",
     "slide-next-num",
-    slideDeck.next,
-    slideDeck.next ? `${i + 2} / ${total}` : "—"
+    nextSlide,
+    nextSlide ? `${slideDeck.slides.indexOf(nextSlide) + 1} / ${total}` : "—"
   );
   setSlideImage("fs-slide-current", null, null, slideDeck.current, null);
-  setSlideImage("fs-slide-next", null, null, slideDeck.next, null);
+  setSlideImage("fs-slide-next", null, null, nextSlide, null);
 
   updateSlidesVisibility();
 }
@@ -475,7 +579,7 @@ function bindPrompter() {
   $("#sync-slides-chapters").addEventListener("change", (e) => {
     slideDeck.syncWithChapters = e.target.checked;
     savePrompterSettings({ syncSlidesChapters: e.target.checked });
-    if (e.target.checked) slideDeck.syncToChapter(engine.chapterIndex);
+    if (e.target.checked) slideDeck.syncToChapter(engine.chapterIndex, state.agenda.chapters);
   });
 
   $("#btn-fullscreen").addEventListener("click", toggleFullscreen);
@@ -554,6 +658,7 @@ function renderPrompter() {
   }
 
   renderOutline(idx);
+  slideDeck.setContext(state.agenda.chapters, idx);
   renderSlides();
   updatePlayButton();
 

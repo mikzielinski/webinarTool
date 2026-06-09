@@ -57,16 +57,25 @@
         <div class="card card-body presentation-upload" style="margin-top: var(--space-5);">
           <h3 style="margin: 0 0 var(--space-3); font-size: var(--t-h4);">Presentation slides</h3>
           <p style="margin: 0 0 var(--space-3); font-size: var(--t-small); color: var(--color-text-muted);">
-            Upload a PDF or multiple slide images (PNG/JPG). Shown in prompter as current + next slide.
+            Upload <strong>PPTX</strong>, PDF, or slide images (PNG/JPG). Map slides to chapters below.
           </p>
           <div class="editor-toolbar" style="margin-bottom: 0;">
             <label class="upload-zone" id="slide-upload-zone" style="padding: var(--space-3) var(--space-4); border-width: 1px; flex: 1;">
-              <input id="slide-input" type="file" accept=".pdf,image/png,image/jpeg,image/webp,image/gif" multiple />
-              <strong>Upload PDF or images</strong>
+              <input id="slide-input" type="file" accept=".pptx,.pdf,image/png,image/jpeg,image/webp,image/gif" multiple />
+              <strong>Upload PPTX, PDF or images</strong>
             </label>
             <button id="btn-clear-slides" class="btn btn-ghost" type="button">Clear slides</button>
           </div>
           <p id="slide-deck-info" class="field-hint" style="margin-top: var(--space-3);">No presentation loaded</p>
+
+          <div id="slide-picker-panel" class="slide-picker-panel" hidden>
+            <div class="slide-picker-header">
+              <span class="label" style="margin: 0;">Przypisz slajd do chapteru</span>
+              <span id="slide-picker-hint" class="field-hint">Kliknij chapter „Przypisz”, potem slajd</span>
+              <button id="btn-slide-picker-cancel" class="btn btn-ghost" type="button">Anuluj</button>
+            </div>
+            <div id="slide-picker-grid" class="slide-picker-grid"></div>
+          </div>
         </div>
 
         <div class="card card-body" style="margin-top: var(--space-6);">
@@ -134,7 +143,7 @@
               </div>
               <div class="settings-row" style="margin-top: var(--space-2);">
                 <input id="sync-slides-chapters" type="checkbox" checked />
-                <label for="sync-slides-chapters">Slide follows chapter</label>
+                <label for="sync-slides-chapters">Auto: slajd = nr chapteru (gdy brak mapowania)</label>
               </div>
               <button id="btn-notes-scroll-reset" class="btn btn-ghost" type="button" style="margin-top: var(--space-3); width: 100%;">↺ Reset notes scroll</button>
             </div>

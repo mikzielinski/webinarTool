@@ -1,4 +1,6 @@
 import { savePresentation, loadPresentation, clearPresentation } from "./slide-store.js";
+import { loadPptxFromFile } from "./pptx-loader.js";
+import { resolveChapterSlideRange } from "./chapter-slides.js";
 
 const PDFJS_VERSION = "4.4.168";
 let pdfjsLib = null;
@@ -37,11 +39,15 @@ async function renderPdfPage(pdf, pageNum, scale = 2) {
 
 export class SlideDeck {
   constructor() {
-    this.slides = []; // { id, dataUrl, name }
+    this.slides = [];
     this.slideIndex = 0;
     this.fileName = "";
+    this.fileType = "";
     this.syncWithChapters = true;
     this.showSlides = true;
+    this.chapterRange = { start: 0, end: 0 };
+    this.chapters = [];
+    this.chapterIndex = 0;
     this.onChange = () => {};
   }
 
@@ -53,6 +59,7 @@ export class SlideDeck {
     }
     this.slides = data.slides;
     this.fileName = data.fileName || "";
+    this.fileType = data.fileType || "";
     this.slideIndex = 0;
     return true;
   }
@@ -65,6 +72,7 @@ export class SlideDeck {
     await savePresentation({
       slides: this.slides,
       fileName: this.fileName,
+      fileType: this.fileType,
     });
   }
 
@@ -77,13 +85,25 @@ export class SlideDeck {
 
     if (ext === "pdf") {
       await this._loadPdf(first);
+      this.fileType = "pdf";
+    } else if (ext === "pptx") {
+      await this._loadPptx(first);
+      this.fileType = "pptx";
     } else {
       await this._loadImages(files.filter((f) => /\.(png|jpe?g|webp|gif)$/i.test(f.name)));
+      this.fileType = "images";
     }
 
     this.slideIndex = 0;
+    this._updateRange();
     await this.persist();
     this.onChange();
+  }
+
+  async _loadPptx(file) {
+    this.fileName = file.name;
+    this.slides = await loadPptxFromFile(file);
+    if (!this.slides.length) throw new Error("PPTX nie zawiera slajdów");
   }
 
   async _loadPdf(file) {
@@ -109,6 +129,19 @@ export class SlideDeck {
     }
   }
 
+  _updateRange() {
+    if (!this.chapters.length || !this.slides.length) {
+      this.chapterRange = { start: 0, end: Math.max(0, this.slides.length - 1) };
+      return;
+    }
+    if (this.syncWithChapters || this.chapters.some((c) => c.slideStart != null && c.slideStart !== "")) {
+      this.chapterRange = resolveChapterSlideRange(this.chapters, this.chapterIndex, this.slides.length);
+    } else {
+      this.chapterRange = { start: 0, end: this.slides.length - 1 };
+    }
+    this.slideIndex = Math.max(this.chapterRange.start, Math.min(this.slideIndex, this.chapterRange.end));
+  }
+
   get count() {
     return this.slides.length;
   }
@@ -118,36 +151,77 @@ export class SlideDeck {
   }
 
   get next() {
+    const { end } = this.chapterRange;
+    if (this.slideIndex < end) return this.slides[this.slideIndex + 1] ?? null;
     return this.slides[this.slideIndex + 1] ?? null;
+  }
+
+  /** Next slide within chapter range, or null if at end */
+  get nextInChapter() {
+    const { end } = this.chapterRange;
+    if (this.slideIndex < end) return this.slides[this.slideIndex + 1];
+    return null;
   }
 
   goTo(index) {
     if (!this.slides.length) return;
-    this.slideIndex = Math.max(0, Math.min(index, this.slides.length - 1));
-    this.onChange();
+    const { start, end } = this.chapterRange;
+    const clamped = Math.max(start, Math.min(index, end));
+    if (this.slideIndex !== clamped) {
+      this.slideIndex = clamped;
+      this.onChange();
+    }
+  }
+
+  goToAbsolute(index) {
+    if (!this.slides.length) return;
+    const i = Math.max(0, Math.min(index, this.slides.length - 1));
+    if (this.slideIndex !== i) {
+      this.slideIndex = i;
+      this.onChange();
+    }
   }
 
   nextSlide() {
-    this.goTo(this.slideIndex + 1);
+    const { end } = this.chapterRange;
+    if (this.slideIndex < end) this.goToAbsolute(this.slideIndex + 1);
   }
 
   prevSlide() {
-    this.goTo(this.slideIndex - 1);
+    const { start } = this.chapterRange;
+    if (this.slideIndex > start) this.goToAbsolute(this.slideIndex - 1);
   }
 
-  syncToChapter(chapterIndex) {
-    if (!this.syncWithChapters || !this.slides.length) return;
-    const idx = Math.min(chapterIndex, this.slides.length - 1);
-    if (this.slideIndex !== idx) {
-      this.slideIndex = idx;
-      this.onChange();
+  syncToChapter(chapterIndex, chapters) {
+    if (!this.slides.length) return;
+    this.chapters = chapters || this.chapters;
+    this.chapterIndex = chapterIndex;
+    this._updateRange();
+
+    const { start } = this.chapterRange;
+    const ch = chapters?.[chapterIndex];
+    const useExplicit = ch && ch.slideStart != null && ch.slideStart !== "";
+
+    if (useExplicit || this.syncWithChapters) {
+      if (this.slideIndex !== start) {
+        this.slideIndex = start;
+        this.onChange();
+      }
     }
+  }
+
+  setContext(chapters, chapterIndex) {
+    this.chapters = chapters;
+    this.chapterIndex = chapterIndex;
+    this._updateRange();
   }
 
   async clear() {
     this.slides = [];
     this.slideIndex = 0;
     this.fileName = "";
+    this.fileType = "";
+    this.chapterRange = { start: 0, end: 0 };
     await clearPresentation();
     this.onChange();
   }
