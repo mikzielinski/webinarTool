@@ -29,6 +29,12 @@ slideDeck.onChange = () => {
   renderSlideDeckInfo();
   renderSlidePicker();
 };
+slideDeck.onProgress = ({ done, total, phase }) => {
+  if (phase === "render") {
+    const el = $("#slide-deck-info");
+    if (el) el.textContent = `Renderowanie slajdów… ${done}/${total}`;
+  }
+};
 
 const notesScroller = new NotesScroller(() => [
   $("#notes-scroll-panel"),
@@ -252,8 +258,9 @@ function updatePickingSlideUI() {
 
 async function handleSlideFiles(files) {
   if (!files?.length) return;
+  const ext = files[0].name.split(".").pop()?.toLowerCase();
   try {
-    showToast("Loading presentation…");
+    showToast(ext === "pptx" ? "Wczytywanie PPTX (pełny render)…" : "Loading presentation…");
     await slideDeck.loadFiles(files);
     const typeLabel = slideDeck.fileType === "pptx" ? "PPTX" : slideDeck.fileType.toUpperCase();
     showToast(`${typeLabel}: ${slideDeck.count} slides from "${slideDeck.fileName}"`);

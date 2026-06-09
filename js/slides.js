@@ -49,6 +49,7 @@ export class SlideDeck {
     this.chapters = [];
     this.chapterIndex = 0;
     this.onChange = () => {};
+    this.onProgress = null;
   }
 
   async loadFromStorage() {
@@ -102,7 +103,9 @@ export class SlideDeck {
 
   async _loadPptx(file) {
     this.fileName = file.name;
-    this.slides = await loadPptxFromFile(file);
+    this.slides = await loadPptxFromFile(file, (done, total) => {
+      this.onProgress?.({ done, total, phase: "render" });
+    });
     if (!this.slides.length) throw new Error("PPTX nie zawiera slajdów");
   }
 
