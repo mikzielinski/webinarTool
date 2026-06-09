@@ -71,6 +71,9 @@ const $$ = (sel) => document.querySelectorAll(sel);
 async function init() {
   notesScroller.attach();
   await slideDeck.loadFromStorage();
+  if (slideDeck.cacheStale) {
+    showToast("Wgraj ponownie PPTX — zaktualizowano format miniaturek");
+  }
   bindNavigation();
   bindEditor();
   bindPrompter();

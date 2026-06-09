@@ -50,12 +50,23 @@ export class SlideDeck {
     this.chapterIndex = 0;
     this.onChange = () => {};
     this.onProgress = null;
+    this.cacheStale = false;
   }
 
   async loadFromStorage() {
     const data = await loadPresentation();
+    this.cacheStale = false;
     if (!data?.slides?.length) {
       this.slides = [];
+      return false;
+    }
+    // Old SVG thumbnails don't render in <img> — force re-upload
+    if (data.slides.some((s) => s.dataUrl?.startsWith("data:image/svg+xml"))) {
+      await clearPresentation();
+      this.slides = [];
+      this.fileName = "";
+      this.fileType = "";
+      this.cacheStale = true;
       return false;
     }
     this.slides = data.slides;

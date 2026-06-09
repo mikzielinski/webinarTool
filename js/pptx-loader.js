@@ -1,9 +1,10 @@
 /**
- * PPTX loader — full slide preview via pptx-viewer (SVG, no canvas hang).
+ * PPTX loader — full slide preview via pptx-viewer, rasterized to JPEG for thumbnails.
  * Falls back to ZIP image extraction if the renderer fails.
  */
 
 const RENDER_WIDTH = 1280;
+const SLIDE_RENDER_TIMEOUT_MS = 15000;
 const VIEWER_URL = new URL("./vendor/pptx-viewer.js", import.meta.url).href;
 
 let viewerModule = null;
@@ -16,6 +17,13 @@ async function getViewer() {
   } catch (err) {
     throw new Error(`Nie udało się wczytać silnika PPTX: ${err.message}`);
   }
+}
+
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+  ]);
 }
 
 function slidePreviewText(slide) {
@@ -39,57 +47,51 @@ function slidePreviewText(slide) {
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
-async function blobUrlToDataUrl(url) {
-  const res = await fetch(url);
-  const blob = await res.blob();
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
-}
-
-/** Replace blob: refs in SVG with data: URLs so slides survive IndexedDB reload. */
-async function inlineSvgResources(svg) {
-  const images = svg.querySelectorAll("image");
-  for (const el of images) {
-    const href =
-      el.getAttribute("href") ||
-      el.getAttributeNS("http://www.w3.org/1999/xlink", "href");
-    if (!href || href.startsWith("data:")) continue;
-    if (href.startsWith("blob:")) {
-      try {
-        const dataUrl = await blobUrlToDataUrl(href);
-        el.setAttribute("href", dataUrl);
-        el.removeAttributeNS("http://www.w3.org/1999/xlink", "href");
-      } catch {
-        /* keep blob ref for current session */
-      }
-    }
+function canvasToDataUrl(canvas) {
+  try {
+    return canvas.toDataURL("image/jpeg", 0.88);
+  } catch {
+    return canvas.toDataURL("image/png");
   }
-  return svg;
 }
 
-function svgToDataUrl(svg) {
-  const xml = new XMLSerializer().serializeToString(svg);
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
+async function renderSlideToJpeg(presentation, index, width, height) {
+  const { renderSlideToCanvas } = await getViewer();
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  await withTimeout(
+    renderSlideToCanvas(presentation, index, canvas),
+    SLIDE_RENDER_TIMEOUT_MS,
+    `Timeout renderu slajdu ${index + 1}`
+  );
+
+  return canvasToDataUrl(canvas);
 }
 
 async function renderWithViewer(presentation, onProgress) {
-  const { getThumbnails } = await getViewer();
   const total = presentation.slides.length;
   if (!total) throw new Error("PPTX nie zawiera slajdów");
 
-  const thumbs = getThumbnails(presentation, RENDER_WIDTH);
+  const aspect = presentation.slideSize.height / presentation.slideSize.width;
+  const width = RENDER_WIDTH;
+  const height = Math.round(width * aspect);
   const slides = [];
 
   for (let i = 0; i < total; i++) {
-    const svg = await inlineSvgResources(thumbs[i]);
     const preview = slidePreviewText(presentation.slides[i]);
+    let dataUrl;
+    try {
+      dataUrl = await renderSlideToJpeg(presentation, i, width, height);
+    } catch (err) {
+      console.warn(`Slide ${i + 1} render failed:`, err);
+      dataUrl = await renderPlaceholder(i + 1, preview);
+    }
+
     slides.push({
       id: i + 1,
-      dataUrl: svgToDataUrl(svg),
+      dataUrl,
       name: preview ? preview.slice(0, 80) : `Slide ${i + 1}`,
       preview,
     });
@@ -206,7 +208,7 @@ async function renderPlaceholder(slideNum, previewText) {
   const text = (previewText || "Podgląd niedostępny — użyj PDF lub ponów upload PPTX").slice(0, 280);
   wrapText(ctx, text, 80, 160, 1120, 32);
 
-  return canvas.toDataURL("image/jpeg", 0.88);
+  return canvasToDataUrl(canvas);
 }
 
 async function slideImagesFromRels(zip, slidePath) {
