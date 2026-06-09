@@ -211,8 +211,42 @@ function bindEditor() {
 
   $("#btn-slide-picker-cancel").addEventListener("click", () => {
     state.pickingSlideForChapter = null;
+    updatePickingSlideUI();
     renderSlidePicker();
-    renderEditor();
+  });
+}
+
+function getChapterSlideRangeHint(i) {
+  const ch = state.agenda.chapters[i];
+  if (!ch) return "";
+  if (slideDeck.count && (ch.slideStart || ch.slideEnd)) {
+    const { start, end } = resolveChapterSlideRange(state.agenda.chapters, i, slideDeck.count);
+    return `→ ${formatSlideRange(start, end)}`;
+  }
+  if (ch.slideStart) return `${ch.slideStart}+`;
+  return slideDeck.count ? "auto = nr chapteru" : "brak decku";
+}
+
+function updateChapterSlideHint(i) {
+  const hint = document.querySelector(`.chapter-card[data-index="${i}"] .field-hint-inline`);
+  if (hint) hint.textContent = getChapterSlideRangeHint(i);
+}
+
+function updateChapterSlideInputs(i) {
+  const ch = state.agenda.chapters[i];
+  const card = document.querySelector(`.chapter-card[data-index="${i}"]`);
+  if (!ch || !card) return;
+  const startInput = card.querySelector('[data-field="slideStart"]');
+  const endInput = card.querySelector('[data-field="slideEnd"]');
+  if (startInput && document.activeElement !== startInput) startInput.value = ch.slideStart ?? "";
+  if (endInput && document.activeElement !== endInput) endInput.value = ch.slideEnd ?? "";
+  updateChapterSlideHint(i);
+}
+
+function updatePickingSlideUI() {
+  document.querySelectorAll(".chapter-card").forEach((card) => {
+    const i = Number(card.dataset.index);
+    card.classList.toggle("picking-slide", state.pickingSlideForChapter === i);
   });
 }
 
@@ -279,7 +313,8 @@ function renderSlidePicker() {
         }
         persist();
         state.pickingSlideForChapter = null;
-        renderEditor();
+        updateChapterSlideInputs(i);
+        updatePickingSlideUI();
         renderSlidePicker();
         showToast(`Chapter ${i + 1} → slajd ${slideNum}`);
       }
@@ -320,14 +355,7 @@ function renderEditor() {
 
   list.innerHTML = state.agenda.chapters
     .map((ch, i) => {
-      const range =
-        slideDeck.count && (ch.slideStart || ch.slideEnd)
-          ? formatSlideRange(
-              ...Object.values(resolveChapterSlideRange(state.agenda.chapters, i, slideDeck.count)).slice(0, 2)
-            )
-          : ch.slideStart
-            ? `${ch.slideStart}+`
-            : "";
+      const hintText = getChapterSlideRangeHint(i);
       const picking = state.pickingSlideForChapter === i ? " picking-slide" : "";
       return `
     <div class="chapter-card${picking}" draggable="true" data-index="${i}">
@@ -357,7 +385,7 @@ function renderEditor() {
             <label class="label">Slajd do</label>
             <input class="input chapter-slide-input" type="number" min="1" max="999" placeholder="Auto" data-field="slideEnd" data-index="${i}" value="${ch.slideEnd ?? ""}" />
           </div>
-          <span class="field-hint-inline">${range ? `→ ${range}` : slideDeck.count ? "auto = nr chapteru" : "brak decku"}</span>
+          <span class="field-hint-inline">${hintText}</span>
           <button type="button" class="btn btn-secondary btn-pick-slide" data-index="${i}" ${slideDeck.count ? "" : "disabled"}>Przypisz</button>
         </div>
       </div>
@@ -375,10 +403,10 @@ function renderEditor() {
 
   list.querySelectorAll(".btn-pick-slide").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.pickingSlideForChapter = Number(btn.dataset.index);
-      renderEditor();
+      const idx = Number(btn.dataset.index);
+      state.pickingSlideForChapter = state.pickingSlideForChapter === idx ? null : idx;
+      updatePickingSlideUI();
       renderSlidePicker();
-      document.getElementById("slide-picker-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   });
 
@@ -425,7 +453,7 @@ function onChapterFieldChange(e) {
     $("#total-time-value").textContent = formatDuration(totalDurationMinutes(state.agenda));
   }
   if (field === "slideStart" || field === "slideEnd") {
-    renderEditor();
+    updateChapterSlideHint(i);
   }
 }
 
@@ -456,17 +484,28 @@ function bindDragReorder(list) {
 
 /* ── Slides ── */
 
-function setSlideImage(imgId, emptyId, numId, slide, numLabel) {
+function setSlideCounter(el, current1, total, range) {
+  if (!el) return;
+  if (!total || current1 == null) {
+    el.textContent = "—";
+    return;
+  }
+  let html = `<span class="slide-num-current">${current1}</span><span class="slide-num-sep"> / </span><span class="slide-num-total">${total}</span>`;
+  if (range) {
+    html += `<span class="slide-num-range"> · ${formatSlideRange(range.start, range.end)}</span>`;
+  }
+  el.innerHTML = html;
+}
+
+function setSlideImage(imgId, emptyId, slide) {
   const img = document.getElementById(imgId);
   if (!img) return;
   const empty = emptyId ? document.getElementById(emptyId) : null;
-  const num = numId ? document.getElementById(numId) : null;
 
   if (slide) {
     img.src = slide.dataUrl;
     img.hidden = false;
     if (empty) empty.hidden = true;
-    if (num) num.textContent = numLabel;
   } else {
     img.removeAttribute("src");
     img.hidden = true;
@@ -478,7 +517,6 @@ function setSlideImage(imgId, emptyId, numId, slide, numLabel) {
           : "No presentation — upload PDF or images in Agenda setup";
       }
     }
-    if (num) num.textContent = "—";
   }
 }
 
@@ -488,22 +526,22 @@ function renderSlides() {
   const nextSlide = slideDeck.nextInChapter ?? slideDeck.next;
   const range = slideDeck.chapterRange;
 
-  setSlideImage(
-    "slide-current",
-    "slide-current-empty",
-    "slide-current-num",
-    slideDeck.current,
-    total ? `${i + 1} / ${total}${range ? ` · ${formatSlideRange(range.start, range.end)}` : ""}` : "—"
+  setSlideImage("slide-current", "slide-current-empty", slideDeck.current);
+  setSlideCounter(
+    document.getElementById("slide-current-num"),
+    total ? i + 1 : null,
+    total,
+    range
   );
-  setSlideImage(
-    "slide-next",
-    "slide-next-empty",
-    "slide-next-num",
-    nextSlide,
-    nextSlide ? `${slideDeck.slides.indexOf(nextSlide) + 1} / ${total}` : "—"
+  setSlideImage("slide-next", "slide-next-empty", nextSlide);
+  setSlideCounter(
+    document.getElementById("slide-next-num"),
+    nextSlide ? slideDeck.slides.indexOf(nextSlide) + 1 : null,
+    total,
+    null
   );
-  setSlideImage("fs-slide-current", null, null, slideDeck.current, null);
-  setSlideImage("fs-slide-next", null, null, nextSlide, null);
+  setSlideImage("fs-slide-current", null, slideDeck.current);
+  setSlideImage("fs-slide-next", null, nextSlide);
 
   updateSlidesVisibility();
 }
