@@ -57,6 +57,19 @@ function canvasToDataUrl(canvas) {
   }
 }
 
+/** True when capture is essentially empty (html2canvas off-screen bug). */
+function isCanvasMostlyBlank(canvas, threshold = 0.92) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return true;
+  const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let blank = 0;
+  const total = width * height;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i] > 248 && data[i + 1] > 248 && data[i + 2] > 248) blank++;
+  }
+  return blank / total > threshold;
+}
+
 function svgImageHref(el) {
   return (
     el.getAttribute("href") ||
@@ -123,7 +136,19 @@ async function renderSlideToJpeg(presentation, index, width, height) {
   const html2canvas = await getHtml2Canvas();
 
   const host = document.createElement("div");
-  host.style.cssText = `position:fixed;left:-20000px;top:0;width:${width}px;height:${height}px;overflow:hidden;background:#fff;`;
+  host.setAttribute("aria-hidden", "true");
+  // Must stay in viewport — off-screen (-20000px) yields blank white captures.
+  host.style.cssText = [
+    "position:fixed",
+    "left:0",
+    "top:0",
+    `width:${width}px`,
+    `height:${height}px`,
+    "overflow:hidden",
+    "opacity:0.01",
+    "pointer-events:none",
+    "z-index:-1",
+  ].join(";");
   document.body.appendChild(host);
 
   try {
@@ -133,25 +158,29 @@ async function renderSlideToJpeg(presentation, index, width, height) {
     await inlineAllSvgImages(svg);
     await waitForSvgImages(svg);
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 120));
 
     const canvas = await html2canvas(host, {
-      backgroundColor: "#ffffff",
+      backgroundColor: null,
       scale: 1,
       useCORS: true,
       allowTaint: false,
       logging: false,
       width,
       height,
-      windowWidth: width,
-      windowHeight: height,
     });
+
+    if (isCanvasMostlyBlank(canvas)) {
+      throw new Error("Pusty podgląd slajdu (blank capture)");
+    }
+
     return canvasToDataUrl(canvas);
   } finally {
     host.remove();
   }
 }
 
-async function renderWithViewer(presentation, onProgress) {
+async function renderWithViewer(presentation, onProgress, getZipSlide) {
   const total = presentation.slides.length;
   if (!total) throw new Error("PPTX nie zawiera slajdów");
 
@@ -170,7 +199,8 @@ async function renderWithViewer(presentation, onProgress) {
       );
     } catch (err) {
       console.warn(`Slide ${i + 1} render failed:`, err);
-      dataUrl = await renderPlaceholder(i + 1, preview);
+      const zipSlide = getZipSlide ? await getZipSlide(i) : null;
+      dataUrl = zipSlide?.dataUrl || (await renderPlaceholder(i + 1, preview));
     }
 
     slides.push({
@@ -185,11 +215,19 @@ async function renderWithViewer(presentation, onProgress) {
   return slides;
 }
 
-async function loadWithViewer(source, onProgress) {
+async function loadWithViewer(source, onProgress, arrayBuffer) {
   const { loadPresentation } = await getViewer();
   const presentation = await loadPresentation(source);
+  let zipSlides = null;
+  const getZipSlide = async (i) => {
+    if (!arrayBuffer) return null;
+    if (!zipSlides) {
+      zipSlides = await loadWithZip(arrayBuffer).catch(() => null);
+    }
+    return zipSlides?.[i] ?? null;
+  };
   try {
-    return await renderWithViewer(presentation, onProgress);
+    return await renderWithViewer(presentation, onProgress, getZipSlide);
   } finally {
     presentation.cleanup?.();
   }
@@ -341,7 +379,7 @@ async function loadWithZip(arrayBuffer, onProgress) {
 
 async function loadPptxBuffer(arrayBuffer, onProgress) {
   try {
-    return await loadWithViewer(arrayBuffer, onProgress);
+    return await loadWithViewer(arrayBuffer, onProgress, arrayBuffer);
   } catch (viewerErr) {
     console.warn("PPTX viewer failed, using ZIP fallback:", viewerErr);
     try {
