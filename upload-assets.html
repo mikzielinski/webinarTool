@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload Xelto Assets</title>
+  <link rel="stylesheet" href="css/xelto.css" />
+  <style>
+    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .zone {
+      border: 2px dashed var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 2.5rem;
+      text-align: center;
+      cursor: pointer;
+      margin: 1.5rem 0;
+    }
+    .zone:hover, .zone.dragover { border-color: var(--xelto-orange-500); background: rgba(232,93,43,0.05); }
+    .zone input { display: none; }
+    pre {
+      background: var(--xelto-navy-800);
+      color: var(--xelto-white);
+      padding: 1rem;
+      border-radius: var(--radius-md);
+      overflow: auto;
+      font-size: 0.8rem;
+      max-height: 400px;
+    }
+    .ok { color: var(--xelto-teal-500); font-weight: 600; }
+    .err { color: var(--color-danger); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>Upload Xelto brand assets</h1>
+  <p>Wrzuć <strong>MZ- Xelto Docs.zip</strong> — serwer rozpakuje pliki do <code>assets/xelto/</code> i wygeneruje inwentarz dla agenta.</p>
+
+  <label class="zone" id="zone">
+    <input id="file" type="file" accept=".zip" />
+    <strong>Kliknij lub przeciągnij ZIP tutaj</strong>
+    <p style="color: var(--color-text-muted); font-size: 0.875rem;">np. MZ- Xelto Docs.zip z Downloads</p>
+  </label>
+
+  <p id="status"></p>
+  <pre id="output" hidden></pre>
+
+  <p><a href="/">← Wróć do Webinar Promptera</a></p>
+
+  <script>
+    const zone = document.getElementById("zone");
+    const input = document.getElementById("file");
+    const status = document.getElementById("status");
+    const output = document.getElementById("output");
+
+    zone.addEventListener("click", () => input.click());
+    zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("dragover"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      zone.classList.remove("dragover");
+      if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]);
+    });
+    input.addEventListener("change", () => { if (input.files[0]) upload(input.files[0]); });
+
+    async function upload(file) {
+      status.textContent = "Wysyłanie…";
+      status.className = "";
+      output.hidden = true;
+
+      const fd = new FormData();
+      fd.append("file", file);
+
+      try {
+        const res = await fetch("/api/upload-assets", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+
+        status.innerHTML = `<span class="ok">✓ Załadowano ${data.fileCount} plików → ${data.extractedTo}</span>`;
+        output.hidden = false;
+        output.textContent = JSON.stringify(data.inventory, null, 2);
+      } catch (err) {
+        status.innerHTML = `<span class="err">Błąd: ${err.message}</span>`;
+      }
+    }
+  </script>
+</body>
+</html>
