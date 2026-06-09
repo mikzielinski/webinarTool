@@ -57,17 +57,20 @@ function canvasToDataUrl(canvas) {
   }
 }
 
-/** True when capture is essentially empty (html2canvas off-screen bug). */
-function isCanvasMostlyBlank(canvas, threshold = 0.92) {
+/** True when capture is essentially empty (blank white or black frame). */
+function isCanvasMostlyEmpty(canvas, threshold = 0.88) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return true;
   const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  let blank = 0;
+  let empty = 0;
   const total = width * height;
   for (let i = 0; i < data.length; i += 4) {
-    if (data[i] > 248 && data[i + 1] > 248 && data[i + 2] > 248) blank++;
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    if ((r > 248 && g > 248 && b > 248) || (r < 12 && g < 12 && b < 12)) empty++;
   }
-  return blank / total > threshold;
+  return empty / total > threshold;
 }
 
 function svgImageHref(el) {
@@ -161,16 +164,21 @@ async function renderSlideToJpeg(presentation, index, width, height) {
     await new Promise((r) => setTimeout(r, 120));
 
     const canvas = await html2canvas(host, {
-      backgroundColor: null,
+      backgroundColor: "#ffffff",
       scale: 1,
       useCORS: true,
       allowTaint: false,
       logging: false,
       width,
       height,
+      onclone: (_doc, clone) => {
+        clone.style.opacity = "1";
+        clone.style.visibility = "visible";
+        clone.style.zIndex = "2147483647";
+      },
     });
 
-    if (isCanvasMostlyBlank(canvas)) {
+    if (isCanvasMostlyEmpty(canvas)) {
       throw new Error("Pusty podgląd slajdu (blank capture)");
     }
 
