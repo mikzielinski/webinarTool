@@ -116,6 +116,22 @@ body {
   background: var(--xel-indigo-100);
 }
 
+/* Buttons on dark surfaces (prompter + fullscreen) */
+.btn-on-dark,
+.prompter-theme .prompter-controls .btn-ghost,
+.prompter-fullscreen .btn-ghost {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--xel-white);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+}
+
+.btn-on-dark:hover:not(:disabled),
+.prompter-theme .prompter-controls .btn-ghost:hover:not(:disabled),
+.prompter-fullscreen .btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--xel-white);
+}
+
 .prompter-theme .btn-ghost {
   color: var(--fg-on-dark);
   border-color: rgba(255, 255, 255, 0.3);

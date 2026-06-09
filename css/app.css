@@ -25,7 +25,11 @@
 .brand-logo {
   height: 28px;
   width: auto;
+  max-width: 110px;
+  object-fit: contain;
+  object-position: left center;
   display: block;
+  flex-shrink: 0;
 }
 
 .brand-text h1 {
@@ -322,10 +326,53 @@
   flex-direction: column;
   gap: var(--space-5);
   padding: var(--space-6);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--xel-navy-800);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-md);
+  color: var(--xel-white);
+}
+
+.prompter-theme .prompter-stage .chapter-title,
+.prompter-theme .prompter-stage .timer-display {
+  color: var(--xel-white);
+}
+
+.prompter-theme .prompter-stage .timer-meta,
+.prompter-theme .prompter-stage .progress-labels {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.prompter-theme .prompter-stage .notes-panel {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.prompter-theme .prompter-stage .notes-panel h3 {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.prompter-theme .prompter-stage .notes-content {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.prompter-theme .prompter-stage .notes-content.empty {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.prompter-theme .prompter-controls {
+  background: rgba(0, 0, 0, 0.25);
+  border-top-color: rgba(255, 255, 255, 0.12);
+}
+
+.prompter-theme .keyboard-hints {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.prompter-theme .keyboard-hints kbd {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .prompter-header {
@@ -449,8 +496,8 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   padding: var(--space-4);
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0 0 var(--r-lg) var(--r-lg);
 }
 
@@ -481,10 +528,12 @@
   inset: 0;
   z-index: 1000;
   background: var(--xel-navy);
+  color: var(--xel-white);
   display: none;
   flex-direction: column;
-  padding: var(--space-8);
+  padding: var(--space-6) var(--space-8) var(--space-5);
   overflow: hidden;
+  gap: var(--space-4);
 }
 
 .prompter-fullscreen::before {
@@ -493,14 +542,21 @@
   inset: 0;
   background: url("../assets/xelto/assets/backgrounds/bg-dark-glow-1.jpg") center / cover no-repeat;
   z-index: 0;
+  pointer-events: none;
 }
 
 .prompter-fullscreen::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(8, 22, 45, 0.92) 0%, rgba(8, 22, 45, 0.55) 60%, rgba(8, 22, 45, 0.2) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(8, 22, 45, 0.94) 0%,
+    rgba(8, 22, 45, 0.78) 50%,
+    rgba(44, 39, 96, 0.55) 100%
+  );
   z-index: 1;
+  pointer-events: none;
 }
 
 .prompter-fullscreen > * {
@@ -512,38 +568,102 @@
   display: flex;
 }
 
+.fs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: var(--space-4);
+}
+
 .prompter-fullscreen .fs-logo {
-  height: 34px;
-  margin-bottom: var(--space-6);
-}
-
-.prompter-fullscreen .chapter-title {
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  color: var(--xel-white);
-}
-
-.prompter-fullscreen .timer-display {
-  font-size: clamp(3rem, 10vw, 6rem);
-  color: var(--xel-white);
-}
-
-.prompter-fullscreen .notes-content {
-  font-size: clamp(1.1rem, 2.5vw, 1.75rem);
-  color: rgba(255, 255, 255, 0.85);
+  height: 32px;
+  width: auto;
+  max-width: 130px;
+  object-fit: contain;
+  object-position: left center;
+  display: block;
+  flex-shrink: 0;
 }
 
 .fullscreen-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--space-6);
+  gap: var(--space-6);
+  flex-shrink: 0;
+}
+
+.prompter-fullscreen .chapter-label {
+  color: var(--xel-red);
+}
+
+.prompter-fullscreen .chapter-title {
+  font-size: clamp(1.75rem, 4vw, 3rem);
+  color: var(--xel-white);
+  margin: 0;
+}
+
+.prompter-fullscreen .timer-display {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  color: var(--xel-white);
+}
+
+.prompter-fullscreen .timer-display.warning,
+.prompter-fullscreen .timer-display.critical {
+  color: var(--xel-red);
+}
+
+.prompter-fullscreen .fs-notes-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-6);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--r-md);
+  backdrop-filter: blur(8px);
+}
+
+.prompter-fullscreen .fs-notes-label {
+  margin: 0 0 var(--space-3);
+  font-size: var(--t-caption);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.prompter-fullscreen .notes-content {
+  font-size: clamp(1.05rem, 2.2vw, 1.65rem);
+  line-height: var(--lh-normal);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.prompter-fullscreen .notes-content.empty {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
+.fs-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  flex-shrink: 0;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--r-md);
+}
+
+.fs-controls .btn-primary {
+  min-width: 120px;
 }
 
 .fullscreen-exit {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
-  z-index: 3;
+  flex-shrink: 0;
 }
 
 .advance-overlay {

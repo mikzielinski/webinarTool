@@ -266,31 +266,42 @@ function bindDragReorder(list) {
 /* ── Prompter ── */
 
 function bindPrompter() {
-  $("#btn-play-pause").addEventListener("click", () => {
+  const playPause = () => {
     engine.toggle();
     updatePlayButton();
-  });
-
-  $("#btn-next").addEventListener("click", () => {
+  };
+  const next = () => {
     engine.cancelAdvance();
     engine.next();
     updatePlayButton();
-  });
-
-  $("#btn-prev").addEventListener("click", () => {
+  };
+  const prev = () => {
     engine.cancelAdvance();
     engine.prev();
     updatePlayButton();
-  });
-
-  $("#btn-reset-chapter").addEventListener("click", () => {
+  };
+  const reset = () => {
     engine.cancelAdvance();
     engine.resetChapterTimer();
     engine.pause();
     updatePlayButton();
-  });
+  };
+
+  $("#btn-play-pause").addEventListener("click", playPause);
+  $("#fs-btn-play-pause").addEventListener("click", playPause);
+
+  $("#btn-next").addEventListener("click", next);
+  $("#fs-btn-next").addEventListener("click", next);
+
+  $("#btn-prev").addEventListener("click", prev);
+  $("#fs-btn-prev").addEventListener("click", prev);
+
+  $("#btn-reset-chapter").addEventListener("click", reset);
+  $("#fs-btn-reset").addEventListener("click", reset);
 
   $("#btn-add-minute").addEventListener("click", () => engine.addTime(60));
+  $("#fs-btn-add-minute").addEventListener("click", () => engine.addTime(60));
+
   $("#btn-fullscreen").addEventListener("click", toggleFullscreen);
   $("#btn-exit-fullscreen").addEventListener("click", () => setFullscreen(false));
 
@@ -310,9 +321,10 @@ function bindPrompter() {
 }
 
 function updatePlayButton() {
-  const btn = $("#btn-play-pause");
-  const { running } = engine.getState();
-  btn.textContent = running ? "Pause" : "Start";
+  const label = engine.getState().running ? "Pause" : "Start";
+  document.querySelectorAll(".btn-play-pause, #btn-play-pause, #fs-btn-play-pause").forEach((btn) => {
+    btn.textContent = label;
+  });
 }
 
 function renderPrompter() {
@@ -365,9 +377,14 @@ function renderPrompter() {
 
   const fs = $("#prompter-fullscreen");
   if (fs.classList.contains("active")) {
+    $("#fs-chapter-number").textContent = `Chapter ${idx + 1} of ${chapters.length}`;
     $("#fs-chapter-title").textContent = ch?.title ?? "";
-    $("#fs-timer").textContent = formatTimerDisplay(remaining);
-    $("#fs-notes").textContent = ch?.notes?.trim() || "No notes.";
+    const fsTimer = $("#fs-timer");
+    fsTimer.textContent = formatTimerDisplay(remaining);
+    fsTimer.classList.toggle("warning", remaining > 0 && remaining <= 60);
+    fsTimer.classList.toggle("critical", remaining > 0 && remaining <= 15);
+    $("#fs-notes").textContent = ch?.notes?.trim() || "No notes for this chapter.";
+    $("#fs-notes").classList.toggle("empty", !ch?.notes?.trim());
     $("#fs-progress-fill").style.width = `${chapterProg * 100}%`;
   }
 }

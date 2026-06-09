@@ -144,10 +144,10 @@
 
             <div class="prompter-controls">
               <button id="btn-prev" class="btn btn-secondary" title="Previous chapter">← Prev</button>
-              <button id="btn-play-pause" class="btn btn-primary btn-lg">Start</button>
+              <button id="btn-play-pause" class="btn btn-primary btn-lg btn-play-pause">Start</button>
               <button id="btn-next" class="btn btn-secondary" title="Next chapter">Next →</button>
-              <button id="btn-reset-chapter" class="btn btn-ghost" title="Reset chapter timer">↺ Reset</button>
-              <button id="btn-add-minute" class="btn btn-ghost" title="Add 1 minute">+1 min</button>
+              <button id="btn-reset-chapter" class="btn btn-ghost btn-on-dark" title="Reset chapter timer">↺ Reset</button>
+              <button id="btn-add-minute" class="btn btn-ghost btn-on-dark" title="Add 1 minute">+1 min</button>
               <button id="btn-fullscreen" class="btn btn-secondary" title="Fullscreen mode">⛶ Fullscreen</button>
             </div>
 
@@ -161,21 +161,35 @@
   </div>
 
   <!-- Fullscreen overlay -->
-  <div id="prompter-fullscreen" class="prompter-fullscreen prompter-theme">
-    <button id="btn-exit-fullscreen" class="btn btn-secondary fullscreen-exit">Exit fullscreen</button>
-    <img class="fs-logo" src="assets/xelto/assets/logos/xelto-logo-white.png" alt="Xelto" />
+  <div id="prompter-fullscreen" class="prompter-fullscreen">
+    <div class="fs-header">
+      <img class="fs-logo" src="assets/xelto/assets/logos/xelto-logo-white.png" alt="Xelto" />
+      <button id="btn-exit-fullscreen" class="btn btn-on-dark fullscreen-exit">✕ Exit</button>
+    </div>
+
     <div class="fullscreen-top">
       <div>
-        <div class="chapter-label" id="fs-chapter-number">Now presenting</div>
+        <div class="chapter-label" id="fs-chapter-number">Chapter 1 of 9</div>
         <h2 id="fs-chapter-title" class="chapter-title">—</h2>
       </div>
       <div id="fs-timer" class="timer-display">00:00</div>
     </div>
-    <div class="progress-track" style="margin-bottom: var(--space-6); height: 12px;">
+
+    <div class="progress-track" style="height: 10px; flex-shrink: 0;">
       <div id="fs-progress-fill" class="progress-fill" style="width: 0%"></div>
     </div>
-    <div class="notes-panel" style="flex: 1; border: none;">
+
+    <div class="fs-notes-panel">
+      <h3 class="fs-notes-label">Speaker notes</h3>
       <div id="fs-notes" class="notes-content">—</div>
+    </div>
+
+    <div class="fs-controls">
+      <button id="fs-btn-prev" class="btn btn-secondary" title="Previous">← Prev</button>
+      <button id="fs-btn-play-pause" class="btn btn-primary btn-lg btn-play-pause">Start</button>
+      <button id="fs-btn-next" class="btn btn-secondary" title="Next">Next →</button>
+      <button id="fs-btn-reset" class="btn btn-ghost btn-on-dark" title="Reset">↺ Reset</button>
+      <button id="fs-btn-add-minute" class="btn btn-ghost btn-on-dark" title="+1 min">+1 min</button>
     </div>
   </div>
 
@@ -183,7 +197,7 @@
   <div id="advance-overlay" class="advance-overlay">
     <div class="advance-overlay-content">
       <div id="advance-count" class="advance-countdown">3</div>
-      <p>Next chapter starting… <button id="advance-cancel" class="btn btn-secondary" style="margin-left: 8px;">Cancel</button></p>
+      <p>Next chapter starting… <button id="advance-cancel" class="btn btn-on-dark" style="margin-left: 8px;">Cancel</button></p>
     </div>
   </div>
 
