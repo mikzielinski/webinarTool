@@ -134,20 +134,73 @@ async function waitForSvgImages(svg) {
 }
 
 
+async function renderSvgToCanvas(svg, width, height) {
+  const html2canvas = await getHtml2Canvas();
+  const wrap = document.createElement("div");
+  wrap.style.cssText = `width:${width}px;height:${height}px;overflow:visible;background:#fff;`;
+  const clone = svg.cloneNode(true);
+  clone.setAttribute("width", String(width));
+  clone.setAttribute("height", String(height));
+  clone.style.width = `${width}px`;
+  clone.style.height = `${height}px`;
+  clone.style.display = "block";
+  wrap.appendChild(clone);
+
+  const mount = document.createElement("div");
+  mount.setAttribute("aria-hidden", "true");
+  mount.style.cssText = [
+    "position:fixed",
+    "left:0",
+    "top:0",
+    "opacity:0.01",
+    "pointer-events:none",
+    "z-index:-1",
+  ].join(";");
+  mount.appendChild(wrap);
+  document.body.appendChild(mount);
+
+  try {
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 80));
+
+    // Do NOT pass width/height to html2canvas — it crops to viewport and shows only top-left.
+    const canvas = await html2canvas(wrap, {
+      backgroundColor: "#ffffff",
+      scale: 1,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      onclone: (_doc, el) => {
+        el.style.opacity = "1";
+        el.style.visibility = "visible";
+      },
+    });
+
+    const out = document.createElement("canvas");
+    out.width = width;
+    out.height = height;
+    const ctx = out.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(canvas, 0, 0, width, height);
+    return out;
+  } finally {
+    mount.remove();
+  }
+}
+
 async function renderSlideToJpeg(presentation, index, width, height) {
   const { renderSlideToElement } = await getViewer();
-  const html2canvas = await getHtml2Canvas();
 
   const host = document.createElement("div");
   host.setAttribute("aria-hidden", "true");
-  // Must stay in viewport — off-screen (-20000px) yields blank white captures.
   host.style.cssText = [
     "position:fixed",
     "left:0",
     "top:0",
     `width:${width}px`,
     `height:${height}px`,
-    "overflow:hidden",
+    "overflow:visible",
     "opacity:0.01",
     "pointer-events:none",
     "z-index:-1",
@@ -160,23 +213,8 @@ async function renderSlideToJpeg(presentation, index, width, height) {
     if (!svg) throw new Error("Brak SVG slajdu");
     await inlineAllSvgImages(svg);
     await waitForSvgImages(svg);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    await new Promise((r) => setTimeout(r, 120));
 
-    const canvas = await html2canvas(host, {
-      backgroundColor: "#ffffff",
-      scale: 1,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      width,
-      height,
-      onclone: (_doc, clone) => {
-        clone.style.opacity = "1";
-        clone.style.visibility = "visible";
-        clone.style.zIndex = "2147483647";
-      },
-    });
+    const canvas = await renderSvgToCanvas(svg, width, height);
 
     if (isCanvasMostlyEmpty(canvas)) {
       throw new Error("Pusty podgląd slajdu (blank capture)");
@@ -188,7 +226,7 @@ async function renderSlideToJpeg(presentation, index, width, height) {
   }
 }
 
-async function renderWithViewer(presentation, onProgress, getZipSlide) {
+async function renderWithViewer(presentation, onProgress) {
   const total = presentation.slides.length;
   if (!total) throw new Error("PPTX nie zawiera slajdów");
 
@@ -207,8 +245,7 @@ async function renderWithViewer(presentation, onProgress, getZipSlide) {
       );
     } catch (err) {
       console.warn(`Slide ${i + 1} render failed:`, err);
-      const zipSlide = getZipSlide ? await getZipSlide(i) : null;
-      dataUrl = zipSlide?.dataUrl || (await renderPlaceholder(i + 1, preview));
+      dataUrl = await renderPlaceholder(i + 1, preview);
     }
 
     slides.push({
@@ -223,19 +260,11 @@ async function renderWithViewer(presentation, onProgress, getZipSlide) {
   return slides;
 }
 
-async function loadWithViewer(source, onProgress, arrayBuffer) {
+async function loadWithViewer(source, onProgress) {
   const { loadPresentation } = await getViewer();
   const presentation = await loadPresentation(source);
-  let zipSlides = null;
-  const getZipSlide = async (i) => {
-    if (!arrayBuffer) return null;
-    if (!zipSlides) {
-      zipSlides = await loadWithZip(arrayBuffer).catch(() => null);
-    }
-    return zipSlides?.[i] ?? null;
-  };
   try {
-    return await renderWithViewer(presentation, onProgress, getZipSlide);
+    return await renderWithViewer(presentation, onProgress);
   } finally {
     presentation.cleanup?.();
   }
@@ -387,7 +416,7 @@ async function loadWithZip(arrayBuffer, onProgress) {
 
 async function loadPptxBuffer(arrayBuffer, onProgress) {
   try {
-    return await loadWithViewer(arrayBuffer, onProgress, arrayBuffer);
+    return await loadWithViewer(arrayBuffer, onProgress);
   } catch (viewerErr) {
     console.warn("PPTX viewer failed, using ZIP fallback:", viewerErr);
     try {
