@@ -189,6 +189,65 @@ function parsePlainTextAgenda(content) {
 }
 
 export function sampleAgenda() {
+  return testAgenda();
+}
+
+/** Short mock agenda (~10 min) for testing timer & auto-advance */
+export function testAgenda() {
+  return {
+    title: "TEST — Webinar Prompter (quick run)",
+    chapters: [
+      createChapter({
+        title: "Intro & recording check",
+        durationMinutes: 1,
+        notes: "Say hello and confirm mic/camera.\n\"Recording is in progress — we'll share the link after.\"\nSmile, pause 2 seconds.",
+      }),
+      createChapter({
+        title: "Who we are",
+        durationMinutes: 1,
+        notes: "Xelto — Oracle JD Edwards partner, Poznań & Warsaw.\nOne line on what today's session covers.",
+      }),
+      createChapter({
+        title: "Agenda overview",
+        durationMinutes: 1,
+        notes: "Walk through the points on screen.\nSet expectation: demo + Q&A at the end.",
+      }),
+      createChapter({
+        title: "Problem we solve",
+        durationMinutes: 2,
+        notes: "Manual processes, spreadsheet chaos, no single source of truth.\nExample: order status in 3 systems.\nTransition: \"Here's how JDE fixes that.\"",
+      }),
+      createChapter({
+        title: "Demo — login & dashboard",
+        durationMinutes: 2,
+        notes: "Show login → main dashboard.\nKPI tiles and role-based menu.\nKeep moving — don't drill every field.",
+      }),
+      createChapter({
+        title: "Demo — key workflow",
+        durationMinutes: 2,
+        notes: "ONE happy path (e.g. sales order → approval).\nNarrate each click for the recording.",
+      }),
+      createChapter({
+        title: "Benefits recap",
+        durationMinutes: 1,
+        notes: "3 bullets: speed, visibility, integration.\n\"Go-live in week 12.\"",
+      }),
+      createChapter({
+        title: "Q&A buffer",
+        durationMinutes: 1,
+        notes: "Questions in chat if live.\nFallback: xelto@xelto.com",
+      }),
+      createChapter({
+        title: "Closing",
+        durationMinutes: 1,
+        notes: "Thank you, next steps, contact slide.\n\"See you on the next webinar.\"",
+      }),
+    ],
+  };
+}
+
+/** Full-length demo agenda (~38 min) for realistic rehearsal */
+export function demoAgenda() {
   return {
     title: "Product Demo Webinar",
     chapters: [

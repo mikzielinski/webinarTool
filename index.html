@@ -29,7 +29,8 @@
       <section id="editor-view" class="view active">
         <div class="editor-toolbar">
           <button id="btn-add-chapter" class="btn btn-primary">+ Add chapter</button>
-          <button id="btn-load-sample" class="btn btn-secondary">Load sample</button>
+          <button id="btn-load-sample" class="btn btn-primary">Load test agenda</button>
+          <button id="btn-load-demo" class="btn btn-secondary">Load full demo</button>
           <label class="upload-zone" id="upload-zone" style="padding: var(--space-2) var(--space-4); border-width: 1px;">
             <input id="file-input" type="file" accept=".json,.md,.markdown,.txt" />
             <strong>Upload agenda</strong>
@@ -54,7 +55,12 @@
         <div id="chapters-list" class="chapters-list"></div>
 
         <div class="card card-body" style="margin-top: var(--space-6);">
-          <h3 style="margin: 0 0 var(--space-3); font-size: var(--text-base);">Import format tips</h3>
+          <h3 style="margin: 0 0 var(--space-3); font-size: var(--t-h4);">Quick test</h3>
+          <p style="margin: 0 0 var(--space-3); font-size: var(--t-small); color: var(--color-text-muted);">
+            <strong>Load test agenda</strong> — 9 chapters × 1–2 min (~10 min total). Good for timer & auto-advance.<br />
+            Or upload <code>test-agenda.md</code> / <code>test-agenda.json</code> from the repo.
+          </p>
+          <h3 style="margin: var(--space-4) 0 var(--space-3); font-size: var(--t-h4);">Import formats</h3>
           <p style="margin: 0; font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.7;">
             <strong>Markdown:</strong> use <code>## Chapter title - 4 min</code> headings with notes below.<br />
             <strong>JSON:</strong> <code>{ "title": "...", "chapters": [{ "title": "Intro", "durationMinutes": 4, "notes": "..." }] }</code><br />

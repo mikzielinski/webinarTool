@@ -1,0 +1,50 @@
+{
+  "title": "TEST — Webinar Prompter (quick run)",
+  "chapters": [
+    {
+      "title": "Intro & recording check",
+      "durationMinutes": 1,
+      "notes": "Say hello and confirm mic/camera.\n\"Recording is in progress — we'll share the link after.\"\nSmile, pause 2 seconds."
+    },
+    {
+      "title": "Who we are",
+      "durationMinutes": 1,
+      "notes": "Xelto — Oracle JD Edwards partner, Poznań & Warsaw.\nOne line on what today's session covers."
+    },
+    {
+      "title": "Agenda overview",
+      "durationMinutes": 1,
+      "notes": "Walk through the 8 points on screen.\nSet expectation: demo + Q&A at the end."
+    },
+    {
+      "title": "Problem we solve",
+      "durationMinutes": 2,
+      "notes": "Manual processes, spreadsheet chaos, no single source of truth.\nExample: order status tracked in 3 systems.\nTransition: \"Here's how JDE fixes that.\""
+    },
+    {
+      "title": "Demo — login & dashboard",
+      "durationMinutes": 2,
+      "notes": "Show login screen → main dashboard.\nPoint at KPI tiles and role-based menu.\nDon't drill into every field — keep moving."
+    },
+    {
+      "title": "Demo — key workflow",
+      "durationMinutes": 2,
+      "notes": "Pick ONE happy path (e.g. create sales order → approval).\nNarrate each click out loud for the recording."
+    },
+    {
+      "title": "Benefits recap",
+      "durationMinutes": 1,
+      "notes": "3 bullets max: speed, visibility, integration.\n\"This is what go-live looks like in week 12.\""
+    },
+    {
+      "title": "Q&A buffer",
+      "durationMinutes": 1,
+      "notes": "If you're watching live — drop questions in chat.\nIf silent: mention follow-up email xelto@xelto.com"
+    },
+    {
+      "title": "Closing",
+      "durationMinutes": 1,
+      "notes": "Thank you, next steps, contact slide.\nEnd with: \"See you on the next webinar.\""
+    }
+  ]
+}

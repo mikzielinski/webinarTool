@@ -5,7 +5,8 @@ import {
   formatDuration,
   loadAgenda,
   parseAgendaFile,
-  sampleAgenda,
+  testAgenda,
+  demoAgenda,
   saveAgenda,
   totalDurationMinutes,
 } from "./agenda.js";
@@ -96,10 +97,17 @@ function bindEditor() {
   });
 
   $("#btn-load-sample").addEventListener("click", () => {
-    state.agenda = sampleAgenda();
+    state.agenda = testAgenda();
     persist();
     renderEditor();
-    showToast("Sample agenda loaded");
+    showToast("Test agenda loaded (~10 min, 1 min chapters)");
+  });
+
+  $("#btn-load-demo").addEventListener("click", () => {
+    state.agenda = demoAgenda();
+    persist();
+    renderEditor();
+    showToast("Full demo agenda loaded (~38 min)");
   });
 
   $("#btn-export").addEventListener("click", () => exportAgendaJson(state.agenda));
