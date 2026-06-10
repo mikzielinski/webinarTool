@@ -283,8 +283,26 @@
 }
 
 .pptx-render-hint {
+  display: block;
   font-size: var(--t-small);
   color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.pptx-render-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto var(--space-4);
+  border: 3px solid var(--xel-grey-200);
+  border-top-color: var(--xel-red);
+  border-radius: 50%;
+  animation: pptx-spin 0.8s linear infinite;
+}
+
+@keyframes pptx-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Prompter */
@@ -761,11 +779,16 @@
 }
 
 .slide-picker-panel {
-  margin-top: var(--space-4);
+  margin-top: var(--space-5);
   padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--r-md);
   background: var(--xel-grey-bg);
+}
+
+.slide-picker-panel.picking-open {
+  border-color: var(--xel-red);
+  box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.15);
 }
 
 .slide-picker-panel[hidden] {

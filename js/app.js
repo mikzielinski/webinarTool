@@ -29,17 +29,29 @@ slideDeck.onChange = () => {
   renderSlideDeckInfo();
   renderSlidePicker();
 };
-slideDeck.onProgress = ({ done, total, phase }) => {
+function setPptxLoadProgress({ phase, done, total }) {
   const overlay = $("#pptx-render-overlay");
   const label = $("#pptx-render-label");
-  if (phase === "render") {
-    overlay?.classList.add("active");
-    const el = $("#slide-deck-info");
-    const text = `Renderowanie slajdów… ${done}/${total}`;
-    if (el) el.textContent = text;
-    if (label) label.textContent = text;
-  }
-};
+  const hint = $("#pptx-render-hint");
+  const deckInfo = $("#slide-deck-info");
+  const messages = {
+    read: "Wczytywanie pliku…",
+    parse: "Parsowanie PPTX…",
+    render: total ? `Renderowanie slajdów… ${done}/${total}` : "Renderowanie slajdów…",
+  };
+  const hints = {
+    read: "Odczyt pliku z dysku",
+    parse: "Analiza struktury prezentacji — to może potrwać ok. minutę",
+    render: "Generowanie miniaturek — ok. kilka sekund na slajd",
+  };
+  const text = messages[phase] || "Przygotowanie prezentacji…";
+  overlay?.classList.add("active");
+  if (label) label.textContent = text;
+  if (hint) hint.textContent = hints[phase] || "";
+  if (deckInfo) deckInfo.textContent = text;
+}
+
+slideDeck.onProgress = (progress) => setPptxLoadProgress(progress);
 
 const notesScroller = new NotesScroller(() => [
   $("#notes-scroll-panel"),
@@ -188,8 +200,10 @@ function bindEditor() {
 
   const zone = $("#upload-zone");
   const input = $("#file-input");
-  zone.addEventListener("click", () => input.click());
-  input.addEventListener("change", (e) => handleAgendaFiles(e.target.files));
+  input.addEventListener("change", (e) => {
+    handleAgendaFiles(e.target.files);
+    e.target.value = "";
+  });
   zone.addEventListener("dragover", (e) => {
     e.preventDefault();
     zone.classList.add("dragover");
@@ -203,8 +217,10 @@ function bindEditor() {
 
   const slideZone = $("#slide-upload-zone");
   const slideInput = $("#slide-input");
-  slideZone.addEventListener("click", () => slideInput.click());
-  slideInput.addEventListener("change", (e) => handleSlideFiles(e.target.files));
+  slideInput.addEventListener("change", (e) => {
+    handleSlideFiles(e.target.files);
+    e.target.value = "";
+  });
   slideZone.addEventListener("dragover", (e) => {
     e.preventDefault();
     slideZone.classList.add("dragover");
@@ -227,6 +243,7 @@ function bindEditor() {
     state.pickingSlideForChapter = null;
     updatePickingSlideUI();
     renderSlidePicker();
+    showToast("Anulowano przypisywanie slajdu");
   });
 }
 
@@ -268,11 +285,11 @@ async function handleSlideFiles(files) {
   if (!files?.length) return;
   const ext = files[0].name.split(".").pop()?.toLowerCase();
   try {
-    showToast(
-      ext === "pptx"
-        ? "Wczytywanie PPTX (render ~1–2 min dla 12 slajdów)…"
-        : "Loading presentation…"
-    );
+    if (ext === "pptx") {
+      setPptxLoadProgress({ phase: "read", done: 0, total: 1 });
+    } else {
+      showToast("Loading presentation…");
+    }
     await slideDeck.loadFiles(files);
     $("#pptx-render-overlay")?.classList.remove("active");
     const typeLabel = slideDeck.fileType === "pptx" ? "PPTX" : slideDeck.fileType.toUpperCase();
@@ -319,9 +336,10 @@ function renderSlidePicker() {
 
   panel.hidden = false;
   const pickIdx = state.pickingSlideForChapter;
+  panel.classList.toggle("picking-open", pickIdx !== null);
   hint.textContent = pickIdx !== null
     ? `Wybierz slajd START dla chapteru ${pickIdx + 1} („${state.agenda.chapters[pickIdx]?.title}”)`
-    : "Kliknij „Przypisz” przy chapterze, potem slajd na miniaturze";
+    : "Kliknij „Przypisz” przy chapterze, potem miniaturę tutaj";
 
   grid.innerHTML = slideDeck.slides
     .map(
@@ -336,19 +354,22 @@ function renderSlidePicker() {
   grid.querySelectorAll("[data-slide]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const slideNum = Number(btn.dataset.slide);
-      if (state.pickingSlideForChapter !== null) {
-        const i = state.pickingSlideForChapter;
-        state.agenda.chapters[i].slideStart = slideNum;
-        if (state.agenda.chapters[i].slideEnd != null && state.agenda.chapters[i].slideEnd < slideNum) {
-          state.agenda.chapters[i].slideEnd = null;
-        }
-        persist();
-        state.pickingSlideForChapter = null;
-        updateChapterSlideInputs(i);
-        updatePickingSlideUI();
-        renderSlidePicker();
-        showToast(`Chapter ${i + 1} → slajd ${slideNum}`);
+      if (state.pickingSlideForChapter === null) {
+        showToast("Najpierw kliknij „Przypisz” przy wybranym chapterze");
+        return;
       }
+      const i = state.pickingSlideForChapter;
+      state.agenda.chapters[i].slideStart = slideNum;
+      if (state.agenda.chapters[i].slideEnd != null && state.agenda.chapters[i].slideEnd < slideNum) {
+        state.agenda.chapters[i].slideEnd = null;
+      }
+      persist();
+      state.pickingSlideForChapter = null;
+      updateChapterSlideInputs(i);
+      updatePickingSlideUI();
+      renderSlidePicker();
+      showToast(`Chapter ${i + 1} → slajd ${slideNum}`);
+      document.querySelector(`.chapter-card[data-index="${i}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   });
 }
@@ -433,11 +454,22 @@ function renderEditor() {
   });
 
   list.querySelectorAll(".btn-pick-slide").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!slideDeck.count) {
+        showToast("Najpierw wgraj prezentację (PPTX / PDF)");
+        return;
+      }
       const idx = Number(btn.dataset.index);
       state.pickingSlideForChapter = state.pickingSlideForChapter === idx ? null : idx;
       updatePickingSlideUI();
       renderSlidePicker();
+      if (state.pickingSlideForChapter !== null) {
+        const panel = $("#slide-picker-panel");
+        panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+        showToast(`Chapter ${idx + 1}: wybierz miniaturę slajdu poniżej`);
+      }
     });
   });
 

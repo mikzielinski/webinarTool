@@ -65,18 +65,18 @@
             <button id="btn-clear-slides" class="btn btn-ghost" type="button">Clear slides</button>
           </div>
           <p id="slide-deck-info" class="field-hint" style="margin-top: var(--space-3);">No presentation loaded</p>
-
-          <div id="slide-picker-panel" class="slide-picker-panel" hidden>
-            <div class="slide-picker-header">
-              <span class="label" style="margin: 0;">Przypisz slajd do chapteru</span>
-              <span id="slide-picker-hint" class="field-hint">Kliknij „Przypisz” przy chapterze, potem miniaturę</span>
-              <button id="btn-slide-picker-cancel" class="btn btn-ghost" type="button">Anuluj</button>
-            </div>
-            <div id="slide-picker-grid" class="slide-picker-grid"></div>
-          </div>
         </div>
 
         <div id="chapters-list" class="chapters-list"></div>
+
+        <div id="slide-picker-panel" class="slide-picker-panel" hidden>
+          <div class="slide-picker-header">
+            <span class="label" style="margin: 0;">Przypisz slajd do chapteru</span>
+            <span id="slide-picker-hint" class="field-hint">Kliknij „Przypisz” przy chapterze, potem miniaturę poniżej</span>
+            <button id="btn-slide-picker-cancel" class="btn btn-ghost" type="button">Anuluj</button>
+          </div>
+          <div id="slide-picker-grid" class="slide-picker-grid"></div>
+        </div>
 
         <div class="card card-body" style="margin-top: var(--space-6);">
           <h3 style="margin: 0 0 var(--space-3); font-size: var(--t-h4);">Quick test</h3>
@@ -311,8 +311,9 @@
 
   <div id="pptx-render-overlay" class="pptx-render-overlay">
     <div class="pptx-render-overlay-card">
-      <p id="pptx-render-label">Renderowanie slajdów…</p>
-      <span class="pptx-render-hint">Nie zamykaj karty — pierwszy slajd może chwilę potrwać</span>
+      <div class="pptx-render-spinner" aria-hidden="true"></div>
+      <p id="pptx-render-label">Przygotowanie prezentacji…</p>
+      <span id="pptx-render-hint" class="pptx-render-hint">Nie zamykaj karty — parsowanie PPTX może potrwać ok. minutę</span>
     </div>
   </div>
 

@@ -158,7 +158,7 @@ async function rasterizeForeignObjects(svg) {
     return w >= 4 && h >= 4 && fo.innerHTML.trim();
   });
 
-  const patches = await mapPool(foreignObjects, 4, async (fo) => {
+  const patches = await mapPool(foreignObjects, 6, async (fo) => {
     const w = parseFloat(fo.getAttribute("width") || "0");
     const h = parseFloat(fo.getAttribute("height") || "0");
     const mount = document.createElement("div");
@@ -356,15 +356,17 @@ async function renderWithViewer(presentation, onProgress) {
       preview,
       placeholder,
     });
-    onProgress?.(i + 1, total);
+    onProgress?.({ phase: "render", done: i + 1, total });
   }
 
   return slides;
 }
 
 async function loadWithViewer(source, onProgress) {
+  onProgress?.({ phase: "parse", done: 0, total: 1 });
   const { loadPresentation } = await getViewer();
   const presentation = await loadPresentation(source);
+  onProgress?.({ phase: "parse", done: 1, total: 1 });
   try {
     return await renderWithViewer(presentation, onProgress);
   } finally {
@@ -511,7 +513,7 @@ async function loadWithZip(arrayBuffer, onProgress) {
       name: preview ? preview.slice(0, 80) : `Slide ${i + 1}`,
       preview,
     });
-    onProgress?.(i + 1, slidePaths.length);
+    onProgress?.({ phase: "render", done: i + 1, total: slidePaths.length });
   }
   return slides;
 }
@@ -534,5 +536,8 @@ export async function loadPptxSlides(arrayBuffer, onProgress) {
 }
 
 export async function loadPptxFromFile(file, onProgress) {
-  return loadPptxBuffer(await file.arrayBuffer(), onProgress);
+  onProgress?.({ phase: "read", done: 0, total: 1 });
+  const buffer = await file.arrayBuffer();
+  onProgress?.({ phase: "read", done: 1, total: 1 });
+  return loadPptxBuffer(buffer, onProgress);
 }
