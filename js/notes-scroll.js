@@ -90,21 +90,27 @@ export class NotesScroller {
   }
 }
 
-const SETTINGS_KEY = "xelto-notes-scroll-mode";
+import { storageKey } from "./workspace.js";
+
+function scrollModeKey() {
+  return storageKey("notes-scroll-mode");
+}
+
+function prompterSettingsKey() {
+  return storageKey("prompter-settings");
+}
 
 export function loadScrollMode() {
-  return localStorage.getItem(SETTINGS_KEY) || "timer";
+  return localStorage.getItem(scrollModeKey()) || "timer";
 }
 
 export function saveScrollMode(mode) {
-  localStorage.setItem(SETTINGS_KEY, mode);
+  localStorage.setItem(scrollModeKey(), mode);
 }
-
-const SLIDES_SETTINGS_KEY = "xelto-prompter-settings";
 
 export function loadPrompterSettings() {
   try {
-    return JSON.parse(localStorage.getItem(SLIDES_SETTINGS_KEY) || "{}");
+    return JSON.parse(localStorage.getItem(prompterSettingsKey()) || "{}");
   } catch {
     return {};
   }
@@ -112,5 +118,5 @@ export function loadPrompterSettings() {
 
 export function savePrompterSettings(partial) {
   const cur = loadPrompterSettings();
-  localStorage.setItem(SLIDES_SETTINGS_KEY, JSON.stringify({ ...cur, ...partial }));
+  localStorage.setItem(prompterSettingsKey(), JSON.stringify({ ...cur, ...partial }));
 }

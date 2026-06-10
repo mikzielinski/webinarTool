@@ -1,0 +1,6 @@
+node_modules/
+assets/xelto/
+assets/*.zip
+assets/inventory.json
+.DS_Store
+*.log

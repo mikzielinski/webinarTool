@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Xelto Webinar Prompter</title>
-  <link rel="icon" href="assets/xelto/assets/logos/xelto-logo-compact.png" type="image/png" />
+  <link rel="icon" href="brand/logos/xelto-logo-compact.png" type="image/png" />
   <link rel="stylesheet" href="css/xelto.css" />
   <link rel="stylesheet" href="css/app.css" />
 </head>
@@ -12,7 +12,7 @@
   <div class="app-shell">
     <header class="app-header">
       <div class="brand">
-        <img class="brand-logo" src="assets/xelto/assets/logos/xelto-logo-white.png" alt="Xelto" />
+        <img class="brand-logo" src="brand/logos/xelto-logo-white.png" alt="Xelto" />
         <div class="brand-text">
           <h1>Webinar Prompter</h1>
           <span>Recording assistant</span>
@@ -22,23 +22,36 @@
         <button class="nav-tab active" data-view="editor" role="tab">Agenda setup</button>
         <button class="nav-tab" data-view="prompter" role="tab">Live prompter</button>
       </nav>
+      <div class="workspace-bar" title="Dane zapisują się tylko w tej karcie przeglądarki">
+        <span class="workspace-label">Sesja</span>
+        <code id="workspace-id" class="workspace-id">—</code>
+        <button id="btn-new-workspace" class="btn btn-ghost btn-on-dark btn-sm" type="button">Nowa sesja</button>
+      </div>
     </header>
 
     <main class="app-main">
       <!-- Editor -->
       <section id="editor-view" class="view active">
-        <div class="editor-toolbar">
-          <button id="btn-add-chapter" class="btn btn-primary">+ Add chapter</button>
-          <button id="btn-load-sample" class="btn btn-primary">Load test agenda</button>
-          <button id="btn-load-demo" class="btn btn-secondary">Load full demo</button>
-          <label class="upload-zone" id="upload-zone" style="padding: var(--space-2) var(--space-4); border-width: 1px;">
-            <input id="file-input" type="file" accept=".json,.md,.markdown,.txt" />
-            <strong>Upload agenda</strong>
-            <span style="font-size: var(--text-xs); color: var(--color-text-muted); margin-left: 8px;">JSON · Markdown · TXT</span>
-          </label>
-          <button id="btn-export" class="btn btn-secondary">Export JSON</button>
-          <span class="spacer"></span>
-          <button id="btn-start-prompter" class="btn btn-primary btn-lg">Start prompter →</button>
+        <div class="editor-actions">
+          <div class="editor-actions__block">
+            <p class="editor-actions__heading">Agenda</p>
+            <div class="editor-actions__row">
+              <button id="btn-add-chapter" class="btn btn-primary" type="button">+ Chapter</button>
+              <button id="btn-load-sample" class="btn btn-secondary" type="button">Test agenda</button>
+              <button id="btn-load-demo" class="btn btn-secondary" type="button">Full demo</button>
+              <button id="btn-dl-template-md" class="btn btn-ghost" type="button">Szablon MD ↓</button>
+              <button id="btn-dl-template-json" class="btn btn-ghost" type="button">Szablon JSON ↓</button>
+              <label class="upload-zone upload-zone--compact" id="upload-zone">
+                <input id="file-input" type="file" accept=".json,.md,.markdown,.txt" />
+                <strong>Wgraj agendę</strong>
+                <span class="upload-zone__hint">JSON · MD · TXT</span>
+              </label>
+              <button id="btn-export" class="btn btn-secondary" type="button">Export JSON</button>
+            </div>
+          </div>
+          <div class="editor-actions__block editor-actions__block--cta">
+            <button id="btn-start-prompter" class="btn btn-primary btn-lg" type="button">Start prompter →</button>
+          </div>
         </div>
 
         <div class="webinar-meta">
@@ -57,10 +70,11 @@
           <p style="margin: 0 0 var(--space-3); font-size: var(--t-small); color: var(--color-text-muted);">
             Upload <strong>PPTX</strong>, PDF, or slide images. Map slides to chapters in the list below.
           </p>
-          <div class="editor-toolbar" style="margin-bottom: 0;">
-            <label class="upload-zone" id="slide-upload-zone" style="padding: var(--space-3) var(--space-4); border-width: 1px; flex: 1;">
+          <div class="editor-actions__row editor-actions__row--slides">
+            <label class="upload-zone upload-zone--slides" id="slide-upload-zone">
               <input id="slide-input" type="file" accept=".pptx,.pdf,image/png,image/jpeg,image/webp,image/gif" multiple />
-              <strong>Upload PPTX, PDF or images</strong>
+              <strong>Wgraj PPTX, PDF lub obrazy</strong>
+              <span class="upload-zone__hint">eksperymentalne — patrz README</span>
             </label>
             <button id="btn-clear-slides" class="btn btn-ghost" type="button">Clear slides</button>
           </div>
@@ -246,7 +260,7 @@
   <!-- Fullscreen overlay -->
   <div id="prompter-fullscreen" class="prompter-fullscreen">
     <div class="fs-header">
-      <img class="fs-logo" src="assets/xelto/assets/logos/xelto-logo-white.png" alt="Xelto" />
+      <img class="fs-logo" src="brand/logos/xelto-logo-white.png" alt="Xelto" />
       <button id="btn-exit-fullscreen" class="btn btn-on-dark fullscreen-exit">✕ Exit</button>
     </div>
 

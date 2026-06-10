@@ -1,10 +1,15 @@
-const DB_NAME = "xelto-webinar";
+import { getWorkspaceId } from "./workspace.js";
+
 const DB_VERSION = 1;
 const STORE = "slides";
 
+function dbName() {
+  return `xelto-webinar-${getWorkspaceId()}`;
+}
+
 function openDb() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    const req = indexedDB.open(dbName(), DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) {

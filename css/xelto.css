@@ -1,5 +1,5 @@
 /* Webinar prompter — built on official Xelto design system */
-@import url("../assets/xelto/colors_and_type.css");
+@import url("../brand/colors_and_type.css");
 
 /* App semantic aliases (map to DS tokens) */
 :root {

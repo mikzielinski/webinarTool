@@ -1,6 +1,7 @@
 import {
   createChapter,
   createEmptyAgenda,
+  downloadAgendaTemplate,
   exportAgendaJson,
   formatDuration,
   loadAgenda,
@@ -10,6 +11,7 @@ import {
   saveAgenda,
   totalDurationMinutes,
 } from "./agenda.js";
+import { getWorkspaceId, startNewWorkspace } from "./workspace.js";
 import { PrompterEngine } from "./prompter.js";
 import { NotesScroller, loadScrollMode, saveScrollMode, loadPrompterSettings, savePrompterSettings } from "./notes-scroll.js";
 import { SlideDeck } from "./slides.js";
@@ -90,6 +92,7 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 async function init() {
+  updateWorkspaceBadge();
   notesScroller.attach();
   await slideDeck.loadFromStorage();
   if (slideDeck.cacheStale) {
@@ -144,6 +147,45 @@ function showToast(msg) {
   showToast._t = setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
+function updateWorkspaceBadge() {
+  const el = $("#workspace-id");
+  if (el) el.textContent = getWorkspaceId();
+}
+
+async function resetWorkspace() {
+  startNewWorkspace();
+  state.agenda = loadAgenda();
+  state.pickingSlideForChapter = null;
+  state.lastChapterIndex = -1;
+
+  slideDeck.slides = [];
+  slideDeck.slideIndex = 0;
+  slideDeck.fileName = "";
+  slideDeck.fileType = "";
+  slideDeck.cacheStale = false;
+  slideDeck.placeholderCount = 0;
+  await slideDeck.loadFromStorage();
+
+  const settings = loadPrompterSettings();
+  slideDeck.showSlides = settings.showSlides !== false;
+  slideDeck.syncWithChapters = settings.syncSlidesChapters !== false;
+  notesScroller.setMode(loadScrollMode());
+
+  engine.stop();
+  engine.load(state.agenda);
+  notesScroller.resetScroll();
+  notesScroller.setRunning(false);
+
+  updateWorkspaceBadge();
+  applyPrompterSettingsUI();
+  renderEditor();
+  renderSlideDeckInfo();
+  renderSlidePicker();
+  renderSlides();
+  renderPrompter();
+  showToast("Nowa sesja — pusta agenda");
+}
+
 function applyPrompterSettingsUI() {
   $("#notes-scroll-mode").value = notesScroller.mode;
   $("#show-slides").checked = slideDeck.showSlides;
@@ -192,6 +234,27 @@ function bindEditor() {
   });
 
   $("#btn-export").addEventListener("click", () => exportAgendaJson(state.agenda));
+
+  $("#btn-dl-template-md").addEventListener("click", () => {
+    downloadAgendaTemplate("md");
+    showToast("Pobrano szablon Markdown");
+  });
+
+  $("#btn-dl-template-json").addEventListener("click", () => {
+    downloadAgendaTemplate("json");
+    showToast("Pobrano szablon JSON");
+  });
+
+  $("#btn-new-workspace").addEventListener("click", () => {
+    if (
+      !confirm(
+        "Rozpocząć nową sesję w tej karcie?\n\nAktualna agenda i slajdy zostaną odłączone od tej karty (dane innych sesji w przeglądarce nie są widoczne)."
+      )
+    ) {
+      return;
+    }
+    resetWorkspace();
+  });
 
   $("#btn-start-prompter").addEventListener("click", () => {
     if (!state.agenda.chapters.length) {

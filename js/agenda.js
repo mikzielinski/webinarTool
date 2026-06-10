@@ -1,4 +1,8 @@
-const STORAGE_KEY = "xelto-webinar-agenda";
+import { storageKey } from "./workspace.js";
+
+function agendaStorageKey() {
+  return storageKey("agenda");
+}
 
 export function createEmptyAgenda() {
   return {
@@ -39,12 +43,12 @@ export function formatTimer(seconds) {
 }
 
 export function saveAgenda(agenda) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(agenda));
+  localStorage.setItem(agendaStorageKey(), JSON.stringify(agenda));
 }
 
 export function loadAgenda() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(agendaStorageKey());
     if (!raw) return createEmptyAgenda();
     const parsed = JSON.parse(raw);
     if (!parsed.chapters) parsed.chapters = [];
@@ -62,6 +66,17 @@ export function exportAgendaJson(agenda) {
   a.download = `${slugify(agenda.title || "webinar")}-agenda.json`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export function downloadAgendaTemplate(format) {
+  const ext = format === "json" ? "json" : "md";
+  const a = document.createElement("a");
+  a.href = `templates/agenda-template.${ext}`;
+  a.download = `webinar-agenda-template.${ext}`;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 function slugify(text) {

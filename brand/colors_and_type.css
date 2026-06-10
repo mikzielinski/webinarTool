@@ -1,0 +1,134 @@
+/* ============================================================
+   XELTO DESIGN SYSTEM — Colors & Type
+   Source of truth: brand palette sheet (assets/brand-palette-reference.png)
+   + PPTX theme (Szablon nowej prezentacji XELTO.pptx)
+   ============================================================ */
+
+/* Brand webfonts — imported here so every consumer inherits them from the
+   tokens below, with no per-file <link> needed. */
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap");
+
+/* ---------- COLOR TOKENS ---------- */
+:root {
+  /* Brand — Primary */
+  --xel-indigo:        #2C2760; /* PRIMARY — deep indigo/navy, the dominant brand color */
+  --xel-navy:          #08162D; /* DARKER  — near-black navy, backgrounds & dark surfaces */
+  --xel-red:           #E30613; /* BRAND red — single high-energy accent */
+  --xel-red-dark:      #A31D23; /* DARKER red — used for icons & pressed states */
+
+  /* Neutrals */
+  --xel-white:         #FFFFFF;
+  --xel-grey:          #A6A6A6; /* mid grey (R166) */
+  --xel-grey-light:    #D9D9D9; /* light grey (R217) — hairlines, dividers, fills */
+  --xel-grey-bg:       #EFEFEF; /* off-white surface from theme accent1 */
+
+  /* Extended ramp (derived, harmonious — for UI states only) */
+  --xel-indigo-700:    #211d4d;
+  --xel-indigo-300:    #6b66a0;
+  --xel-indigo-100:    #e4e3ef;
+  --xel-navy-800:      #0e1f3d;
+  --xel-grey-700:      #5c5c66;
+  --xel-grey-500:      #8a8a93;
+  --xel-grey-200:      #e7e7ea;
+  --xel-red-50:        #fdeaec;
+
+  /* Signature gradient: red → indigo (45°). Used in rings, bars, arrows, dots. */
+  --xel-gradient:      linear-gradient(135deg, #E30613 0%, #2C2760 100%); /* @kind color */
+  --xel-gradient-soft: linear-gradient(135deg, #E30613 0%, #3b3470 60%, #2C2760 100%); /* @kind color */
+
+  /* ---------- SEMANTIC COLOR ROLES ---------- */
+  --fg-1:   var(--xel-navy);      /* primary text on light */
+  --fg-2:   var(--xel-grey-700);  /* secondary text */
+  --fg-3:   var(--xel-grey-500);  /* muted / captions */
+  --fg-on-dark:   var(--xel-white);
+  --fg-on-dark-2: rgba(255,255,255,.72);
+
+  --bg-1:   var(--xel-white);     /* default surface */
+  --bg-2:   var(--xel-grey-bg);   /* subtle raised / section */
+  --bg-dark: var(--xel-navy);     /* dramatic dark sections */
+
+  --accent:        var(--xel-red);
+  --accent-press:  var(--xel-red-dark);
+  --brand:         var(--xel-indigo);
+
+  --line:   var(--xel-grey-light);
+  --line-strong: var(--xel-grey);
+  --focus:  var(--xel-indigo);
+
+  /* ---------- TYPE TOKENS ---------- */
+  /* Brand typeface system (chosen to fit the circuit-board / "Matrix code"
+     identity; Arial remains the documented fallback per the PPTX theme):
+       Display/headings → Space Grotesk — technical, distinctive grotesque.
+       Body/UI          → IBM Plex Sans — engineered, neutral, ERP-legible.
+       Mono             → IBM Plex Mono — code, endpoints, token values. */
+  --font-sans: "IBM Plex Sans", Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --font-display: "Space Grotesk", "IBM Plex Sans", Arial, "Helvetica Neue", sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, "Courier New", monospace;
+
+  --fw-regular: 400; /* @kind font */
+  --fw-medium:  500; /* @kind font */
+  --fw-semibold:600; /* @kind font */
+  --fw-bold:    700; /* @kind font */
+  /* Space Grotesk / Plex Sans top out at 700 */
+  --fw-black:   700; /* @kind font */
+
+  /* Type scale — corporate, generous. rem base = 16px */
+  --t-display:  clamp(2.8rem, 5vw, 4.25rem); /* @kind font */
+  --t-h1:       clamp(2.2rem, 3.6vw, 3rem); /* @kind font */
+  --t-h2:       clamp(1.7rem, 2.6vw, 2.25rem); /* @kind font */
+  --t-h3:       1.375rem; /* @kind font */
+  --t-h4:       1.125rem; /* @kind font */
+  --t-body-lg:  1.1875rem; /* @kind font */
+  --t-body:     1rem; /* @kind font */
+  --t-small:    0.875rem; /* @kind font */
+  --t-caption:  0.75rem; /* @kind font */
+
+  --lh-tight:   1.05; /* @kind font */
+  --lh-snug:    1.2; /* @kind font */
+  --lh-normal:  1.55; /* @kind font */
+  --tracking-tight: -0.02em; /* @kind font */
+  /* --tracking-wide: eyebrows / labels — Xelto uses ALL-CAPS spaced labels */
+  --tracking-wide:  0.08em;   /* @kind font */
+
+  /* ---------- RADIUS / SHADOW / SPACING ---------- */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(8,22,45,.06), 0 1px 3px rgba(8,22,45,.08);
+  --shadow-md: 0 4px 12px rgba(8,22,45,.08), 0 2px 4px rgba(8,22,45,.06);
+  --shadow-lg: 0 18px 40px -12px rgba(8,22,45,.22);
+  --shadow-glow: 0 14px 50px -16px rgba(227,6,19,.45); /* red glow, for hero CTAs/cards on dark */
+
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px; --space-9: 96px;
+}
+
+/* ---------- SEMANTIC TYPE CLASSES ---------- */
+.xel-eyebrow {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-bold);
+  font-size: var(--t-caption);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.xel-display {
+  font-family: var(--font-display);
+  font-weight: var(--fw-black);
+  font-size: var(--t-display);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-1);
+}
+.xel-h1 { font-family: var(--font-display); font-weight: var(--fw-bold); font-size: var(--t-h1); line-height: var(--lh-snug); letter-spacing: var(--tracking-tight); color: var(--fg-1); }
+.xel-h2 { font-family: var(--font-display); font-weight: var(--fw-bold); font-size: var(--t-h2); line-height: var(--lh-snug); color: var(--fg-1); }
+.xel-h3 { font-family: var(--font-sans); font-weight: var(--fw-semibold); font-size: var(--t-h3); line-height: 1.3; color: var(--fg-1); }
+.xel-h4 { font-family: var(--font-sans); font-weight: var(--fw-semibold); font-size: var(--t-h4); line-height: 1.35; color: var(--fg-1); }
+.xel-body-lg { font-family: var(--font-sans); font-weight: var(--fw-regular); font-size: var(--t-body-lg); line-height: var(--lh-normal); color: var(--fg-2); }
+.xel-body { font-family: var(--font-sans); font-weight: var(--fw-regular); font-size: var(--t-body); line-height: var(--lh-normal); color: var(--fg-2); }
+.xel-small { font-family: var(--font-sans); font-size: var(--t-small); line-height: 1.5; color: var(--fg-2); }
+.xel-caption { font-family: var(--font-sans); font-size: var(--t-caption); line-height: 1.4; color: var(--fg-3); letter-spacing: .01em; }
+.xel-mono { font-family: var(--font-mono); font-size: var(--t-small); letter-spacing: -0.01em; }

@@ -1,0 +1,26 @@
+{
+  "title": "Tytuł webinaru",
+  "chapters": [
+    {
+      "title": "Wprowadzenie",
+      "durationMinutes": 3,
+      "notes": "Powitanie uczestników.\nKrótko: kto prowadzi i o czym dziś mówimy.\nPrzypomnij, że nagranie jest w toku.",
+      "slideStart": null,
+      "slideEnd": null
+    },
+    {
+      "title": "Główny temat",
+      "durationMinutes": 8,
+      "notes": "Opisz problem lub kontekst biznesowy.\nPokaż rozwiązanie / demo.\nPodkreśl 2–3 kluczowe korzyści.",
+      "slideStart": null,
+      "slideEnd": null
+    },
+    {
+      "title": "Podsumowanie i Q&A",
+      "durationMinutes": 4,
+      "notes": "Zbierz wnioski w 3 punktach.\nZaproszenie do pytań.\nPodziękowanie i kolejne kroki.",
+      "slideStart": null,
+      "slideEnd": null
+    }
+  ]
+}
