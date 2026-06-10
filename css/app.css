@@ -1286,6 +1286,141 @@
   accent-color: var(--xel-red);
 }
 
+.settings-group-label {
+  font-size: var(--t-caption);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-muted);
+}
+
+.settings-hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--t-caption);
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.gaze-guide-controls {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.gaze-guide-controls input[type="range"] {
+  flex: 1;
+  min-width: 5rem;
+  accent-color: var(--xel-red);
+}
+
+.gaze-guide-pos {
+  margin: 0;
+  font-size: var(--t-caption);
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.gaze-guide-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.gaze-guide-btns .btn {
+  flex: 1 1 auto;
+}
+
+#btn-gaze-adjust.active {
+  box-shadow: 0 0 0 2px var(--xel-red);
+}
+
+/* Gaze guide overlay — fixed on viewport for recording alignment */
+.gaze-guide {
+  --gaze-x: 50%;
+  --gaze-y: 18%;
+  --gaze-size: 36px;
+  --gaze-opacity: 0.72;
+  position: fixed;
+  left: var(--gaze-x);
+  top: var(--gaze-y);
+  width: var(--gaze-size);
+  height: var(--gaze-size);
+  transform: translate(-50%, -50%);
+  z-index: 2147482000;
+  pointer-events: none;
+  opacity: var(--gaze-opacity);
+  transition: opacity 0.15s ease;
+}
+
+.gaze-guide--adjust {
+  pointer-events: auto;
+  cursor: grab;
+  opacity: 1;
+}
+
+.gaze-guide--adjust:active {
+  cursor: grabbing;
+}
+
+.gaze-guide__ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--xel-red);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0 12px rgba(232, 78, 60, 0.35);
+}
+
+.gaze-guide__dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  background: var(--xel-red);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.gaze-guide__cross {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
+.gaze-guide__cross--h {
+  left: -18px;
+  right: -18px;
+  top: 50%;
+  height: 1px;
+  margin-top: -0.5px;
+}
+
+.gaze-guide__cross--v {
+  top: -18px;
+  bottom: -18px;
+  left: 50%;
+  width: 1px;
+  margin-left: -0.5px;
+}
+
+body.gaze-adjust-mode::before {
+  content: "Ustaw celownik — przeciągnij lub strzałki · Esc = gotowe";
+  position: fixed;
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147482100;
+  padding: var(--space-2) var(--space-4);
+  background: rgba(8, 22, 45, 0.92);
+  color: var(--xel-white);
+  font-size: var(--t-small);
+  border-radius: var(--r-md);
+  pointer-events: none;
+  box-shadow: var(--shadow-lg);
+}
+
 .toast {
   position: fixed;
   bottom: var(--space-6);

@@ -159,6 +159,28 @@
                 <input id="sync-slides-chapters" type="checkbox" checked />
                 <label for="sync-slides-chapters">Auto: slajd = nr chapteru (gdy brak mapowania)</label>
               </div>
+              <hr style="border: none; border-top: 1px solid var(--color-border); margin: var(--space-4) 0;" />
+              <div class="settings-group-label">Celownik wzroku</div>
+              <p class="settings-hint">Drobna nakładka — ustaw punkt, w który patrzysz podczas nagrywania (np. obiektyw kamery).</p>
+              <div class="settings-row" style="margin-top: var(--space-2);">
+                <input id="gaze-guide-enabled" type="checkbox" />
+                <label for="gaze-guide-enabled">Pokaż celownik</label>
+              </div>
+              <div class="gaze-guide-controls">
+                <div class="settings-row">
+                  <label for="gaze-guide-size">Rozmiar</label>
+                  <input id="gaze-guide-size" type="range" min="24" max="56" step="4" value="36" />
+                </div>
+                <div class="settings-row">
+                  <label for="gaze-guide-opacity">Przezroczystość</label>
+                  <input id="gaze-guide-opacity" type="range" min="25" max="100" step="5" value="72" />
+                </div>
+                <p class="gaze-guide-pos">Pozycja: <span id="gaze-guide-x-val">50%</span> × <span id="gaze-guide-y-val">18%</span></p>
+                <div class="gaze-guide-btns">
+                  <button id="btn-gaze-adjust" class="btn btn-secondary" type="button">Ustaw pozycję</button>
+                  <button id="btn-gaze-reset" class="btn btn-ghost" type="button">Domyślna</button>
+                </div>
+              </div>
               <button id="btn-notes-scroll-reset" class="btn btn-ghost" type="button" style="margin-top: var(--space-3); width: 100%;">↺ Reset notes scroll</button>
             </div>
           </aside>
@@ -249,7 +271,7 @@
             <p class="keyboard-hints">
               <kbd>Space</kbd> start/pause · <kbd>←</kbd><kbd>→</kbd> chapter ·
               <kbd>PgUp</kbd><kbd>PgDn</kbd> slide · <kbd>↑</kbd><kbd>↓</kbd> notes ·
-              <kbd>R</kbd> reset · <kbd>F</kbd> fullscreen
+              <kbd>R</kbd> reset · <kbd>F</kbd> fullscreen · celownik w ustawieniach po lewej
             </p>
           </div>
         </div>
@@ -332,6 +354,13 @@
   </div>
 
   <div id="toast" class="toast" role="status"></div>
+
+  <div id="gaze-guide" class="gaze-guide" hidden aria-hidden="true">
+    <div class="gaze-guide__ring" aria-hidden="true"></div>
+    <div class="gaze-guide__cross gaze-guide__cross--h" aria-hidden="true"></div>
+    <div class="gaze-guide__cross gaze-guide__cross--v" aria-hidden="true"></div>
+    <div class="gaze-guide__dot" aria-hidden="true"></div>
+  </div>
 
   <script type="module" src="js/app.js"></script>
 </body>

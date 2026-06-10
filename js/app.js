@@ -12,6 +12,7 @@ import {
   totalDurationMinutes,
 } from "./agenda.js";
 import { getWorkspaceId, startNewWorkspace } from "./workspace.js";
+import { applyGazeGuideUI, bindGazeGuide } from "./gaze-guide.js";
 import { PrompterEngine } from "./prompter.js";
 import { NotesScroller, loadScrollMode, saveScrollMode, loadPrompterSettings, savePrompterSettings } from "./notes-scroll.js";
 import { SlideDeck } from "./slides.js";
@@ -102,7 +103,9 @@ async function init() {
   bindEditor();
   bindPrompter();
   bindKeyboard();
+  bindGazeGuide({ onToast: showToast });
   applyPrompterSettingsUI();
+  applyGazeGuideUI();
   renderEditor();
   renderSlideDeckInfo();
   renderSlidePicker();
@@ -178,6 +181,7 @@ async function resetWorkspace() {
 
   updateWorkspaceBadge();
   applyPrompterSettingsUI();
+  applyGazeGuideUI();
   renderEditor();
   renderSlideDeckInfo();
   renderSlidePicker();
