@@ -42,15 +42,15 @@
               <span class="editor-actions__label">Rozdziały</span>
               <div class="editor-actions__row">
                 <button id="btn-add-chapter" class="btn btn-primary" type="button">+ Chapter</button>
-                <button id="btn-load-sample" class="btn btn-secondary" type="button">Test agenda</button>
-                <button id="btn-load-demo" class="btn btn-secondary" type="button">Full demo</button>
+                <button id="btn-load-sample" class="btn btn-ghost" type="button">Test agenda</button>
+                <button id="btn-load-demo" class="btn btn-ghost" type="button">Full demo</button>
               </div>
             </div>
             <div class="editor-actions__group">
               <span class="editor-actions__label">Import i eksport</span>
               <div class="editor-actions__row editor-actions__row--files">
-                <button id="btn-dl-template-md" class="btn btn-secondary" type="button">Szablon MD ↓</button>
-                <button id="btn-dl-template-json" class="btn btn-secondary" type="button">Szablon JSON ↓</button>
+                <button id="btn-dl-template-md" class="btn btn-ghost" type="button">Szablon MD ↓</button>
+                <button id="btn-dl-template-json" class="btn btn-ghost" type="button">Szablon JSON ↓</button>
                 <label class="upload-zone upload-zone--compact" id="upload-zone">
                   <input id="file-input" type="file" accept=".json,.md,.markdown,.txt" />
                   <strong>Wgraj agendę</strong>
@@ -73,11 +73,14 @@
           </div>
         </div>
 
-        <div class="card card-body presentation-upload" style="margin-top: var(--space-5);">
-          <h3 style="margin: 0 0 var(--space-3); font-size: var(--t-h4);">Presentation slides</h3>
-          <p style="margin: 0 0 var(--space-3); font-size: var(--t-small); color: var(--color-text-muted);">
-            Upload <strong>PPTX</strong>, PDF, or slide images. Map slides to chapters in the list below.
-          </p>
+        <div class="card presentation-upload" style="margin-top: var(--space-5); border-radius: var(--r-lg); overflow: hidden;">
+          <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);">
+            <div>
+              <h3 style="margin: 0 0 var(--space-1); font-size: var(--t-h4); font-family: var(--font-display); font-weight: var(--fw-bold);">Presentation slides</h3>
+              <p style="margin: 0; font-size: var(--t-small); color: var(--color-text-muted);">Upload <strong>PPTX</strong>, PDF, or slide images. Map slides to chapters in the list below.</p>
+            </div>
+          </div>
+          <div class="card-body">
           <div class="editor-actions__row editor-actions__row--slides">
             <label class="upload-zone upload-zone--slides" id="slide-upload-zone">
               <input id="slide-input" type="file" accept=".pptx,.pdf,image/png,image/jpeg,image/webp,image/gif" multiple />
@@ -87,6 +90,7 @@
             <button id="btn-clear-slides" class="btn btn-ghost" type="button">Clear slides</button>
           </div>
           <p id="slide-deck-info" class="field-hint" style="margin-top: var(--space-3);">No presentation loaded</p>
+          </div>
         </div>
 
         <div id="chapters-list" class="chapters-list"></div>
