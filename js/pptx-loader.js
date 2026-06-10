@@ -3,11 +3,14 @@
  * Inlines embedded images as data: URLs, then captures DOM (text + graphics + photos).
  */
 
-export const PPTX_RENDER_VERSION = 4;
+export const PPTX_RENDER_VERSION = 6;
 
 const RENDER_WIDTH = 960;
-const SLIDE_RENDER_TIMEOUT_MS = 90000;
+const SLIDE_RENDER_TIMEOUT_MS = 60000;
+const SLIDE_PARALLEL = 4;
 const OFFSCREEN_LEFT = -20000;
+
+let imageInlineCache = null;
 const VIEWER_URL = new URL("./vendor/pptx-viewer.js", import.meta.url).href;
 const HTML2CANVAS_URL = new URL("./vendor/html2canvas.js", import.meta.url).href;
 
@@ -54,7 +57,7 @@ function slidePreviewText(slide) {
 
 function canvasToDataUrl(canvas) {
   try {
-    return canvas.toDataURL("image/jpeg", 0.88);
+    return canvas.toDataURL("image/jpeg", 0.85);
   } catch {
     return canvas.toDataURL("image/png");
   }
@@ -108,8 +111,6 @@ function slideBackgroundFromSvg(svg) {
   return bg;
 }
 
-const SVG_NS = "http://www.w3.org/2000/svg";
-
 let renderSandbox = null;
 
 function getRenderSandbox() {
@@ -133,72 +134,52 @@ function getRenderSandbox() {
   return renderSandbox;
 }
 
-async function mapPool(items, limit, fn) {
-  const results = new Array(items.length);
-  let next = 0;
-  async function worker() {
-    while (next < items.length) {
-      const i = next++;
-      results[i] = await fn(items[i], i);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
-  return results;
-}
-
-/** pptx-viewer paints text via SVG foreignObject; rasterize each block before export. */
-async function rasterizeForeignObjects(svg) {
+/** One html2canvas pass for all foreignObject text, composited over the SVG base. */
+async function compositeSlideToCanvas(svg, width, height, backdrop) {
   const html2canvas = await getHtml2Canvas();
-  if (document.fonts?.ready) await document.fonts.ready;
-
   const sandbox = getRenderSandbox();
-  const foreignObjects = [...svg.querySelectorAll("foreignObject")].filter((fo) => {
-    const w = parseFloat(fo.getAttribute("width") || "0");
-    const h = parseFloat(fo.getAttribute("height") || "0");
-    return w >= 4 && h >= 4 && fo.innerHTML.trim();
-  });
+  const foLayer = document.createElement("div");
+  foLayer.style.cssText = `position:relative;width:${width}px;height:${height}px;background:transparent`;
 
-  const patches = await mapPool(foreignObjects, 6, async (fo) => {
+  for (const fo of [...svg.querySelectorAll("foreignObject")]) {
     const w = parseFloat(fo.getAttribute("width") || "0");
     const h = parseFloat(fo.getAttribute("height") || "0");
-    const mount = document.createElement("div");
-    mount.style.cssText = `width:${w}px;height:${h}px;overflow:hidden;background:transparent`;
-    mount.innerHTML = fo.innerHTML;
-    sandbox.appendChild(mount);
+    if (w < 2 || h < 2 || !fo.innerHTML.trim()) continue;
+    const child = document.createElement("div");
+    child.style.cssText = [
+      "position:absolute",
+      `left:${fo.getAttribute("x") || 0}px`,
+      `top:${fo.getAttribute("y") || 0}px`,
+      `width:${w}px`,
+      `height:${h}px`,
+      "overflow:hidden",
+    ].join(";");
+    child.innerHTML = fo.innerHTML;
+    foLayer.appendChild(child);
+    fo.remove();
+  }
+
+  let foCanvas = null;
+  if (foLayer.childElementCount) {
+    sandbox.appendChild(foLayer);
     try {
-      const patch = await html2canvas(mount, {
+      foCanvas = await html2canvas(foLayer, {
         backgroundColor: null,
         scale: 1,
         useCORS: true,
         allowTaint: false,
         logging: false,
       });
-      return {
-        fo,
-        w,
-        h,
-        x: fo.getAttribute("x") || "0",
-        y: fo.getAttribute("y") || "0",
-        dataUrl: patch.toDataURL("image/png"),
-      };
-    } catch (err) {
-      console.warn("Could not rasterize foreignObject:", err);
-      return null;
     } finally {
-      mount.remove();
+      foLayer.remove();
     }
-  });
-
-  for (const patch of patches) {
-    if (!patch?.dataUrl || !patch.fo.isConnected) continue;
-    const img = document.createElementNS(SVG_NS, "image");
-    img.setAttribute("href", patch.dataUrl);
-    img.setAttribute("x", patch.x);
-    img.setAttribute("y", patch.y);
-    img.setAttribute("width", String(patch.w));
-    img.setAttribute("height", String(patch.h));
-    patch.fo.replaceWith(img);
   }
+
+  const base = await svgToCanvas(svg, width, height, backdrop);
+  if (foCanvas) {
+    base.getContext("2d").drawImage(foCanvas, 0, 0, width, height);
+  }
+  return base;
 }
 
 async function svgToCanvas(svg, width, height, backgroundColor = null) {
@@ -247,12 +228,11 @@ async function renderSlideToJpeg(presentation, index, width, height) {
     if (!svg) throw new Error("Brak SVG slajdu");
     await inlineAllSvgImages(svg);
     await waitForSvgImages(svg);
-    await rasterizeForeignObjects(svg);
 
     const backdrop = slideBackgroundFromSvg(svg);
-    let canvas = await svgToCanvas(svg, width, height, backdrop);
+    let canvas = await compositeSlideToCanvas(svg.cloneNode(true), width, height, backdrop);
     if (!hasVisibleContent(canvas)) {
-      canvas = await svgToCanvas(svg, width, height, "#ffffff");
+      canvas = await compositeSlideToCanvas(svg.cloneNode(true), width, height, "#ffffff");
     }
     if (!hasVisibleContent(canvas)) {
       throw new Error("Pusty podgląd slajdu (blank capture)");
@@ -274,24 +254,30 @@ function svgImageHref(el) {
 
 async function hrefToDataUrl(href) {
   if (!href || href.startsWith("data:")) return href;
+  if (imageInlineCache?.has(href)) return imageInlineCache.get(href);
+
+  let dataUrl;
   if (href.startsWith("blob:")) {
     const res = await fetch(href);
     const blob = await res.blob();
-    return new Promise((resolve, reject) => {
+    dataUrl = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  } else {
+    const res = await fetch(href);
+    const blob = await res.blob();
+    dataUrl = await new Promise((resolve, reject) => {
       const r = new FileReader();
       r.onload = () => resolve(r.result);
       r.onerror = reject;
       r.readAsDataURL(blob);
     });
   }
-  const res = await fetch(href);
-  const blob = await res.blob();
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
+  imageInlineCache?.set(href, dataUrl);
+  return dataUrl;
 }
 
 /** Replace blob:/http refs in all SVG <image> nodes (including pattern fills). */
@@ -325,40 +311,60 @@ async function waitForSvgImages(svg) {
 }
 
 
+async function renderOneSlide(presentation, index, width, height) {
+  const preview = slidePreviewText(presentation.slides[index]);
+  try {
+    const dataUrl = await withTimeout(
+      renderSlideToJpeg(presentation, index, width, height),
+      SLIDE_RENDER_TIMEOUT_MS,
+      `Timeout renderu slajdu ${index + 1}`
+    );
+    return {
+      id: index + 1,
+      dataUrl,
+      name: preview ? preview.slice(0, 80) : `Slide ${index + 1}`,
+      preview,
+      placeholder: false,
+    };
+  } catch (err) {
+    console.warn(`Slide ${index + 1} render failed:`, err);
+    return {
+      id: index + 1,
+      dataUrl: await renderPlaceholder(index + 1, preview),
+      name: preview ? preview.slice(0, 80) : `Slide ${index + 1}`,
+      preview,
+      placeholder: true,
+    };
+  }
+}
+
 async function renderWithViewer(presentation, onProgress) {
   const total = presentation.slides.length;
   if (!total) throw new Error("PPTX nie zawiera slajdów");
 
+  imageInlineCache = new Map();
+  if (document.fonts?.ready) await document.fonts.ready;
+
   const width = RENDER_WIDTH;
   const height = Math.round(width * (presentation.slideSize.height / presentation.slideSize.width));
-  const slides = [];
+  const slides = new Array(total);
+  let done = 0;
 
-  for (let i = 0; i < total; i++) {
-    const preview = slidePreviewText(presentation.slides[i]);
-    let dataUrl;
-    let placeholder = false;
-    try {
-      dataUrl = await withTimeout(
-        renderSlideToJpeg(presentation, i, width, height),
-        SLIDE_RENDER_TIMEOUT_MS,
-        `Timeout renderu slajdu ${i + 1}`
-      );
-    } catch (err) {
-      console.warn(`Slide ${i + 1} render failed:`, err);
-      dataUrl = await renderPlaceholder(i + 1, preview);
-      placeholder = true;
+  for (let batch = 0; batch < total; batch += SLIDE_PARALLEL) {
+    const batchIndices = [];
+    for (let i = batch; i < Math.min(batch + SLIDE_PARALLEL, total); i++) batchIndices.push(i);
+
+    const batchSlides = await Promise.all(
+      batchIndices.map((i) => renderOneSlide(presentation, i, width, height))
+    );
+    for (let j = 0; j < batchIndices.length; j++) {
+      slides[batchIndices[j]] = batchSlides[j];
+      done++;
+      onProgress?.({ phase: "render", done, total, partial: slides.filter(Boolean) });
     }
-
-    slides.push({
-      id: i + 1,
-      dataUrl,
-      name: preview ? preview.slice(0, 80) : `Slide ${i + 1}`,
-      preview,
-      placeholder,
-    });
-    onProgress?.({ phase: "render", done: i + 1, total });
   }
 
+  imageInlineCache = null;
   return slides;
 }
 

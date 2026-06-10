@@ -42,7 +42,7 @@ function setPptxLoadProgress({ phase, done, total }) {
   const hints = {
     read: "Odczyt pliku z dysku",
     parse: "Analiza struktury prezentacji — to może potrwać ok. minutę",
-    render: "Generowanie miniaturek — ok. kilka sekund na slajd",
+    render: "Generowanie miniaturek — zwykle kilkanaście sekund dla całej prezentacji",
   };
   const text = messages[phase] || "Przygotowanie prezentacji…";
   overlay?.classList.add("active");
@@ -52,6 +52,10 @@ function setPptxLoadProgress({ phase, done, total }) {
 }
 
 slideDeck.onProgress = (progress) => setPptxLoadProgress(progress);
+slideDeck.onPartialUpdate = () => {
+  renderSlideDeckInfo();
+  renderSlidePicker();
+};
 
 const notesScroller = new NotesScroller(() => [
   $("#notes-scroll-panel"),

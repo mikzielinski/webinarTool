@@ -2,7 +2,7 @@ import { savePresentation, loadPresentation, clearPresentation } from "./slide-s
 import { resolveChapterSlideRange } from "./chapter-slides.js";
 
 /** Bump when PPTX thumbnail pipeline changes — invalidates IndexedDB cache. */
-const PPTX_RENDER_VERSION = 4;
+const PPTX_RENDER_VERSION = 6;
 const PPTX_LOADER_URL = new URL(`./pptx-loader.js?v=${PPTX_RENDER_VERSION}`, import.meta.url).href;
 
 function slidesLookLikePlaceholders(slides, fileType) {
@@ -59,6 +59,7 @@ export class SlideDeck {
     this.chapterIndex = 0;
     this.onChange = () => {};
     this.onProgress = null;
+    this.onPartialUpdate = null;
     this.cacheStale = false;
     this.placeholderCount = 0;
   }
@@ -138,8 +139,12 @@ export class SlideDeck {
   async _loadPptx(file) {
     this.fileName = file.name;
     const { loadPptxFromFile } = await import(PPTX_LOADER_URL);
-    this.slides = await loadPptxFromFile(file, (done, total) => {
-      this.onProgress?.({ done, total, phase: "render" });
+    this.slides = await loadPptxFromFile(file, (progress) => {
+      this.onProgress?.(progress);
+      if (progress.partial?.length) {
+        this.slides = progress.partial;
+        this.onPartialUpdate?.();
+      }
     });
     if (!this.slides.length) throw new Error("PPTX nie zawiera slajdów");
     this.placeholderCount = this.slides.filter((s) => s.placeholder).length;
