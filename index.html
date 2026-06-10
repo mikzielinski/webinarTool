@@ -33,24 +33,32 @@
       <!-- Editor -->
       <section id="editor-view" class="view active">
         <div class="editor-actions">
-          <div class="editor-actions__block">
+          <div class="editor-actions__top">
             <p class="editor-actions__heading">Agenda</p>
-            <div class="editor-actions__row">
-              <button id="btn-add-chapter" class="btn btn-primary" type="button">+ Chapter</button>
-              <button id="btn-load-sample" class="btn btn-secondary" type="button">Test agenda</button>
-              <button id="btn-load-demo" class="btn btn-secondary" type="button">Full demo</button>
-              <button id="btn-dl-template-md" class="btn btn-ghost" type="button">Szablon MD ↓</button>
-              <button id="btn-dl-template-json" class="btn btn-ghost" type="button">Szablon JSON ↓</button>
-              <label class="upload-zone upload-zone--compact" id="upload-zone">
-                <input id="file-input" type="file" accept=".json,.md,.markdown,.txt" />
-                <strong>Wgraj agendę</strong>
-                <span class="upload-zone__hint">JSON · MD · TXT</span>
-              </label>
-              <button id="btn-export" class="btn btn-secondary" type="button">Export JSON</button>
-            </div>
+            <button id="btn-start-prompter" class="btn btn-primary btn-lg editor-actions__cta" type="button">Start prompter →</button>
           </div>
-          <div class="editor-actions__block editor-actions__block--cta">
-            <button id="btn-start-prompter" class="btn btn-primary btn-lg" type="button">Start prompter →</button>
+          <div class="editor-actions__grid">
+            <div class="editor-actions__group">
+              <span class="editor-actions__label">Rozdziały</span>
+              <div class="editor-actions__row">
+                <button id="btn-add-chapter" class="btn btn-primary" type="button">+ Chapter</button>
+                <button id="btn-load-sample" class="btn btn-secondary" type="button">Test agenda</button>
+                <button id="btn-load-demo" class="btn btn-secondary" type="button">Full demo</button>
+              </div>
+            </div>
+            <div class="editor-actions__group">
+              <span class="editor-actions__label">Import i eksport</span>
+              <div class="editor-actions__row editor-actions__row--files">
+                <button id="btn-dl-template-md" class="btn btn-secondary" type="button">Szablon MD ↓</button>
+                <button id="btn-dl-template-json" class="btn btn-secondary" type="button">Szablon JSON ↓</button>
+                <label class="upload-zone upload-zone--compact" id="upload-zone">
+                  <input id="file-input" type="file" accept=".json,.md,.markdown,.txt" />
+                  <strong>Wgraj agendę</strong>
+                  <span class="upload-zone__hint">JSON · MD · TXT</span>
+                </label>
+                <button id="btn-export" class="btn btn-secondary" type="button">Export JSON</button>
+              </div>
+            </div>
           </div>
         </div>
 
