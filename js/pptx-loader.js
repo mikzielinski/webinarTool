@@ -57,51 +57,126 @@ function canvasToDataUrl(canvas) {
   }
 }
 
-/** Reject only truly blank captures (solid white or black), not dark-themed slides. */
-function hasVisibleContent(canvas, minRatio = 0.003) {
+/** Reject blank or flat-color captures (e.g. only the host backdrop). */
+function hasVisibleContent(canvas, minRange = 12) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return false;
-  const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  let interesting = 0;
-  const total = width * height;
-  for (let i = 0; i < data.length; i += 4) {
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let minR = 255;
+  let maxR = 0;
+  let minG = 255;
+  let maxG = 0;
+  let minB = 255;
+  let maxB = 0;
+  const step = 64;
+  for (let i = 0; i < data.length; i += step) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-    if (r > 252 && g > 252 && b > 252) continue;
-    if (r < 3 && g < 3 && b < 3) continue;
-    interesting++;
+    minR = Math.min(minR, r);
+    maxR = Math.max(maxR, r);
+    minG = Math.min(minG, g);
+    maxG = Math.max(maxG, g);
+    minB = Math.min(minB, b);
+    maxB = Math.max(maxB, b);
   }
-  return interesting / total > minRatio;
+  const range = Math.max(maxR - minR, maxG - minG, maxB - minB);
+  return range > minRange;
 }
 
-async function captureElementToCanvas(el, width, height, backgroundColor = null) {
-  const html2canvas = await getHtml2Canvas();
-  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-  await new Promise((r) => setTimeout(r, 100));
+function slideBackgroundFromSvg(svg) {
+  let bestFill = null;
+  let bestArea = 0;
+  for (const rect of svg?.querySelectorAll("rect") || []) {
+    const fill = rect.getAttribute("fill");
+    if (!fill || fill === "none" || !fill.startsWith("#")) continue;
+    const w = parseFloat(rect.getAttribute("width") || "0");
+    const h = parseFloat(rect.getAttribute("height") || "0");
+    const area = w * h;
+    if (area > bestArea) {
+      bestArea = area;
+      bestFill = fill;
+    }
+  }
+  const bg = bestFill || "#08162D";
+  // html2canvas + foreignObject capture fails when the host background is white.
+  const hex = bg.toUpperCase();
+  if (hex === "#FFFFFF" || hex === "#FFF") return "#08162D";
+  return bg;
+}
 
-  const raw = await html2canvas(el, {
-    backgroundColor,
-    scale: 1,
-    useCORS: true,
-    allowTaint: false,
-    logging: false,
-    onclone: (_doc, clone) => {
-      clone.style.opacity = "1";
-      clone.style.visibility = "visible";
-    },
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+/** pptx-viewer paints text via SVG foreignObject; rasterize each block before export. */
+async function rasterizeForeignObjects(svg) {
+  const html2canvas = await getHtml2Canvas();
+  if (document.fonts?.ready) await document.fonts.ready;
+
+  for (const fo of [...svg.querySelectorAll("foreignObject")]) {
+    const w = parseFloat(fo.getAttribute("width") || "0");
+    const h = parseFloat(fo.getAttribute("height") || "0");
+    if (w < 2 || h < 2) continue;
+
+    const mount = document.createElement("div");
+    mount.setAttribute("aria-hidden", "true");
+    mount.style.cssText = [
+      "position:fixed",
+      "left:0",
+      "top:0",
+      `width:${w}px`,
+      `height:${h}px`,
+      "overflow:hidden",
+      "opacity:1",
+      "z-index:2147483646",
+      "pointer-events:none",
+      "background:transparent",
+    ].join(";");
+    mount.innerHTML = fo.innerHTML;
+    document.body.appendChild(mount);
+
+    try {
+      const patch = await html2canvas(mount, {
+        backgroundColor: null,
+        scale: 1,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+      });
+      const img = document.createElementNS(SVG_NS, "image");
+      img.setAttribute("href", patch.toDataURL("image/png"));
+      img.setAttribute("x", fo.getAttribute("x") || "0");
+      img.setAttribute("y", fo.getAttribute("y") || "0");
+      img.setAttribute("width", String(w));
+      img.setAttribute("height", String(h));
+      fo.replaceWith(img);
+    } catch (err) {
+      console.warn("Could not rasterize foreignObject:", err);
+    } finally {
+      mount.remove();
+    }
+  }
+}
+
+async function svgToCanvas(svg, width, height, backgroundColor = null) {
+  const xml = new XMLSerializer().serializeToString(svg);
+  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("SVG export failed"));
+    img.src = url;
   });
 
-  const out = document.createElement("canvas");
-  out.width = width;
-  out.height = height;
-  const ctx = out.getContext("2d");
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
   if (backgroundColor) {
     ctx.fillStyle = backgroundColor;
     ctx.fillRect(0, 0, width, height);
   }
-  ctx.drawImage(raw, 0, 0, width, height);
-  return out;
+  ctx.drawImage(img, 0, 0, width, height);
+  return canvas;
 }
 
 async function renderSlideToJpeg(presentation, index, width, height) {
@@ -115,8 +190,9 @@ async function renderSlideToJpeg(presentation, index, width, height) {
     "top:0",
     `width:${width}px`,
     `height:${height}px`,
-    "overflow:visible",
-    "opacity:0.01",
+    "overflow:hidden",
+    "opacity:1",
+    "clip-path:inset(100%)",
     "pointer-events:none",
     "z-index:-1",
   ].join(";");
@@ -128,11 +204,12 @@ async function renderSlideToJpeg(presentation, index, width, height) {
     if (!svg) throw new Error("Brak SVG slajdu");
     await inlineAllSvgImages(svg);
     await waitForSvgImages(svg);
+    await rasterizeForeignObjects(svg);
 
-    // Capture live DOM (not SVG clone) — preserves text + graphics.
-    let canvas = await captureElementToCanvas(host, width, height, null);
+    const backdrop = slideBackgroundFromSvg(svg);
+    let canvas = await svgToCanvas(svg, width, height, backdrop);
     if (!hasVisibleContent(canvas)) {
-      canvas = await captureElementToCanvas(host, width, height, "#ffffff");
+      canvas = await svgToCanvas(svg, width, height, "#ffffff");
     }
     if (!hasVisibleContent(canvas)) {
       throw new Error("Pusty podgląd slajdu (blank capture)");
