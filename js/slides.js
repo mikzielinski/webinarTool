@@ -1,6 +1,15 @@
 import { savePresentation, loadPresentation, clearPresentation } from "./slide-store.js";
-import { loadPptxFromFile } from "./pptx-loader.js";
 import { resolveChapterSlideRange } from "./chapter-slides.js";
+
+/** Bump when PPTX thumbnail pipeline changes — invalidates IndexedDB cache. */
+const PPTX_RENDER_VERSION = 3;
+const PPTX_LOADER_URL = new URL(`./pptx-loader.js?v=${PPTX_RENDER_VERSION}`, import.meta.url).href;
+
+function slidesLookLikePlaceholders(slides, fileType) {
+  if (fileType !== "pptx" || !slides?.length) return false;
+  const small = slides.filter((s) => (s.dataUrl?.length || 0) < 22000).length;
+  return small >= Math.ceil(slides.length * 0.5);
+}
 
 const PDFJS_VERSION = "4.4.168";
 let pdfjsLib = null;
@@ -51,6 +60,7 @@ export class SlideDeck {
     this.onChange = () => {};
     this.onProgress = null;
     this.cacheStale = false;
+    this.placeholderCount = 0;
   }
 
   async loadFromStorage() {
@@ -62,6 +72,18 @@ export class SlideDeck {
     }
     // Old SVG thumbnails don't render in <img> — force re-upload
     if (data.slides.some((s) => s.dataUrl?.startsWith("data:image/svg+xml"))) {
+      await clearPresentation();
+      this.slides = [];
+      this.fileName = "";
+      this.fileType = "";
+      this.cacheStale = true;
+      return false;
+    }
+    const staleRender =
+      (data.renderVersion || 0) < PPTX_RENDER_VERSION ||
+      data.slides.some((s) => s.placeholder) ||
+      slidesLookLikePlaceholders(data.slides, data.fileType);
+    if (staleRender) {
       await clearPresentation();
       this.slides = [];
       this.fileName = "";
@@ -85,6 +107,7 @@ export class SlideDeck {
       slides: this.slides,
       fileName: this.fileName,
       fileType: this.fileType,
+      renderVersion: this.fileType === "pptx" ? PPTX_RENDER_VERSION : undefined,
     });
   }
 
@@ -114,10 +137,12 @@ export class SlideDeck {
 
   async _loadPptx(file) {
     this.fileName = file.name;
+    const { loadPptxFromFile } = await import(PPTX_LOADER_URL);
     this.slides = await loadPptxFromFile(file, (done, total) => {
       this.onProgress?.({ done, total, phase: "render" });
     });
     if (!this.slides.length) throw new Error("PPTX nie zawiera slajdów");
+    this.placeholderCount = this.slides.filter((s) => s.placeholder).length;
   }
 
   async _loadPdf(file) {

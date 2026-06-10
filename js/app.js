@@ -72,7 +72,7 @@ async function init() {
   notesScroller.attach();
   await slideDeck.loadFromStorage();
   if (slideDeck.cacheStale) {
-    showToast("Wgraj ponownie PPTX — zaktualizowano format miniaturek");
+    showToast("Wgraj ponownie PPTX (Ctrl+Shift+R, potem Clear slides + upload)");
   }
   bindNavigation();
   bindEditor();
@@ -263,10 +263,20 @@ async function handleSlideFiles(files) {
   if (!files?.length) return;
   const ext = files[0].name.split(".").pop()?.toLowerCase();
   try {
-    showToast(ext === "pptx" ? "Wczytywanie PPTX (pełny render)…" : "Loading presentation…");
+    showToast(
+      ext === "pptx"
+        ? "Wczytywanie PPTX (render ~1–2 min dla 12 slajdów)…"
+        : "Loading presentation…"
+    );
     await slideDeck.loadFiles(files);
     const typeLabel = slideDeck.fileType === "pptx" ? "PPTX" : slideDeck.fileType.toUpperCase();
-    showToast(`${typeLabel}: ${slideDeck.count} slides from "${slideDeck.fileName}"`);
+    if (slideDeck.placeholderCount > 0) {
+      showToast(
+        `Uwaga: ${slideDeck.placeholderCount}/${slideDeck.count} slajdów — podgląd tekstowy. Odśwież stronę (Ctrl+Shift+R) i wgraj ponownie.`
+      );
+    } else {
+      showToast(`${typeLabel}: ${slideDeck.count} slides from "${slideDeck.fileName}"`);
+    }
     renderSlideDeckInfo();
     renderSlidePicker();
     updateSlidesVisibility();

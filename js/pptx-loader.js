@@ -3,8 +3,10 @@
  * Inlines embedded images as data: URLs, then captures DOM (text + graphics + photos).
  */
 
+export const PPTX_RENDER_VERSION = 3;
+
 const RENDER_WIDTH = 1280;
-const SLIDE_RENDER_TIMEOUT_MS = 20000;
+const SLIDE_RENDER_TIMEOUT_MS = 60000;
 const VIEWER_URL = new URL("./vendor/pptx-viewer.js", import.meta.url).href;
 const HTML2CANVAS_URL = new URL("./vendor/html2canvas.js", import.meta.url).href;
 
@@ -293,6 +295,7 @@ async function renderWithViewer(presentation, onProgress) {
   for (let i = 0; i < total; i++) {
     const preview = slidePreviewText(presentation.slides[i]);
     let dataUrl;
+    let placeholder = false;
     try {
       dataUrl = await withTimeout(
         renderSlideToJpeg(presentation, i, width, height),
@@ -302,6 +305,7 @@ async function renderWithViewer(presentation, onProgress) {
     } catch (err) {
       console.warn(`Slide ${i + 1} render failed:`, err);
       dataUrl = await renderPlaceholder(i + 1, preview);
+      placeholder = true;
     }
 
     slides.push({
@@ -309,6 +313,7 @@ async function renderWithViewer(presentation, onProgress) {
       dataUrl,
       name: preview ? preview.slice(0, 80) : `Slide ${i + 1}`,
       preview,
+      placeholder,
     });
     onProgress?.(i + 1, total);
   }
