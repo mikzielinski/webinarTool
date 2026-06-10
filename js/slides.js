@@ -2,7 +2,7 @@ import { savePresentation, loadPresentation, clearPresentation } from "./slide-s
 import { resolveChapterSlideRange } from "./chapter-slides.js";
 
 /** Bump when PPTX thumbnail pipeline changes — invalidates IndexedDB cache. */
-const PPTX_RENDER_VERSION = 3;
+const PPTX_RENDER_VERSION = 4;
 const PPTX_LOADER_URL = new URL(`./pptx-loader.js?v=${PPTX_RENDER_VERSION}`, import.meta.url).href;
 
 function slidesLookLikePlaceholders(slides, fileType) {

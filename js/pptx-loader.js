@@ -3,10 +3,11 @@
  * Inlines embedded images as data: URLs, then captures DOM (text + graphics + photos).
  */
 
-export const PPTX_RENDER_VERSION = 3;
+export const PPTX_RENDER_VERSION = 4;
 
-const RENDER_WIDTH = 1280;
-const SLIDE_RENDER_TIMEOUT_MS = 60000;
+const RENDER_WIDTH = 960;
+const SLIDE_RENDER_TIMEOUT_MS = 90000;
+const OFFSCREEN_LEFT = -20000;
 const VIEWER_URL = new URL("./vendor/pptx-viewer.js", import.meta.url).href;
 const HTML2CANVAS_URL = new URL("./vendor/html2canvas.js", import.meta.url).href;
 
@@ -109,33 +110,61 @@ function slideBackgroundFromSvg(svg) {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
+let renderSandbox = null;
+
+function getRenderSandbox() {
+  if (!renderSandbox) {
+    renderSandbox = document.createElement("div");
+    renderSandbox.id = "pptx-render-sandbox";
+    renderSandbox.setAttribute("aria-hidden", "true");
+    renderSandbox.style.cssText = [
+      "position:fixed",
+      `left:${OFFSCREEN_LEFT}px`,
+      "top:0",
+      "width:1920px",
+      "height:1080px",
+      "overflow:hidden",
+      "opacity:1",
+      "pointer-events:none",
+      "z-index:-1",
+    ].join(";");
+    document.body.appendChild(renderSandbox);
+  }
+  return renderSandbox;
+}
+
+async function mapPool(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return results;
+}
+
 /** pptx-viewer paints text via SVG foreignObject; rasterize each block before export. */
 async function rasterizeForeignObjects(svg) {
   const html2canvas = await getHtml2Canvas();
   if (document.fonts?.ready) await document.fonts.ready;
 
-  for (const fo of [...svg.querySelectorAll("foreignObject")]) {
+  const sandbox = getRenderSandbox();
+  const foreignObjects = [...svg.querySelectorAll("foreignObject")].filter((fo) => {
     const w = parseFloat(fo.getAttribute("width") || "0");
     const h = parseFloat(fo.getAttribute("height") || "0");
-    if (w < 2 || h < 2) continue;
+    return w >= 4 && h >= 4 && fo.innerHTML.trim();
+  });
 
+  const patches = await mapPool(foreignObjects, 4, async (fo) => {
+    const w = parseFloat(fo.getAttribute("width") || "0");
+    const h = parseFloat(fo.getAttribute("height") || "0");
     const mount = document.createElement("div");
-    mount.setAttribute("aria-hidden", "true");
-    mount.style.cssText = [
-      "position:fixed",
-      "left:0",
-      "top:0",
-      `width:${w}px`,
-      `height:${h}px`,
-      "overflow:hidden",
-      "opacity:1",
-      "z-index:2147483646",
-      "pointer-events:none",
-      "background:transparent",
-    ].join(";");
+    mount.style.cssText = `width:${w}px;height:${h}px;overflow:hidden;background:transparent`;
     mount.innerHTML = fo.innerHTML;
-    document.body.appendChild(mount);
-
+    sandbox.appendChild(mount);
     try {
       const patch = await html2canvas(mount, {
         backgroundColor: null,
@@ -144,18 +173,31 @@ async function rasterizeForeignObjects(svg) {
         allowTaint: false,
         logging: false,
       });
-      const img = document.createElementNS(SVG_NS, "image");
-      img.setAttribute("href", patch.toDataURL("image/png"));
-      img.setAttribute("x", fo.getAttribute("x") || "0");
-      img.setAttribute("y", fo.getAttribute("y") || "0");
-      img.setAttribute("width", String(w));
-      img.setAttribute("height", String(h));
-      fo.replaceWith(img);
+      return {
+        fo,
+        w,
+        h,
+        x: fo.getAttribute("x") || "0",
+        y: fo.getAttribute("y") || "0",
+        dataUrl: patch.toDataURL("image/png"),
+      };
     } catch (err) {
       console.warn("Could not rasterize foreignObject:", err);
+      return null;
     } finally {
       mount.remove();
     }
+  });
+
+  for (const patch of patches) {
+    if (!patch?.dataUrl || !patch.fo.isConnected) continue;
+    const img = document.createElementNS(SVG_NS, "image");
+    img.setAttribute("href", patch.dataUrl);
+    img.setAttribute("x", patch.x);
+    img.setAttribute("y", patch.y);
+    img.setAttribute("width", String(patch.w));
+    img.setAttribute("height", String(patch.h));
+    patch.fo.replaceWith(img);
   }
 }
 
@@ -188,17 +230,16 @@ async function renderSlideToJpeg(presentation, index, width, height) {
   host.setAttribute("aria-hidden", "true");
   host.style.cssText = [
     "position:fixed",
-    "left:0",
+    `left:${OFFSCREEN_LEFT}px`,
     "top:0",
     `width:${width}px`,
     `height:${height}px`,
     "overflow:hidden",
     "opacity:1",
-    "clip-path:inset(100%)",
     "pointer-events:none",
     "z-index:-1",
   ].join(";");
-  document.body.appendChild(host);
+  getRenderSandbox().appendChild(host);
 
   try {
     renderSlideToElement(presentation, index, host, { width, height });

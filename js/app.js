@@ -30,9 +30,14 @@ slideDeck.onChange = () => {
   renderSlidePicker();
 };
 slideDeck.onProgress = ({ done, total, phase }) => {
+  const overlay = $("#pptx-render-overlay");
+  const label = $("#pptx-render-label");
   if (phase === "render") {
+    overlay?.classList.add("active");
     const el = $("#slide-deck-info");
-    if (el) el.textContent = `Renderowanie slajdów… ${done}/${total}`;
+    const text = `Renderowanie slajdów… ${done}/${total}`;
+    if (el) el.textContent = text;
+    if (label) label.textContent = text;
   }
 };
 
@@ -269,6 +274,7 @@ async function handleSlideFiles(files) {
         : "Loading presentation…"
     );
     await slideDeck.loadFiles(files);
+    $("#pptx-render-overlay")?.classList.remove("active");
     const typeLabel = slideDeck.fileType === "pptx" ? "PPTX" : slideDeck.fileType.toUpperCase();
     if (slideDeck.placeholderCount > 0) {
       showToast(
@@ -285,6 +291,8 @@ async function handleSlideFiles(files) {
     showToast("Błąd wczytywania: " + (err.message || err));
     const el = $("#slide-deck-info");
     if (el) el.textContent = "Błąd: " + (err.message || "nieznany");
+  } finally {
+    $("#pptx-render-overlay")?.classList.remove("active");
   }
 }
 
